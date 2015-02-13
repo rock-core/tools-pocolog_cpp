@@ -77,21 +77,8 @@ namespace pocolog_cpp
         void writeSample(uint16_t stream_index, base::Time const& realtime, base::Time const& logical, void* payload_data, uint32_t payload_size);
     };
 
-    namespace details
-    {
-        template <bool value> struct static_check;
-        template<> struct static_check<true> {};
-    }
-
     /** Writes the file prologue */
     void writePrologue(std::ostream& stream);
-
-    template<class T>
-    Output& operator << (Output& output, const T& value)
-    {
-        details::static_check<false> test;
-        return output;
-    }
 
     template<>
     inline Output& operator << (Output& output, const uint8_t& value)
