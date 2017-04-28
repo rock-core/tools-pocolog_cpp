@@ -1,5 +1,7 @@
 #ifndef DFKI_LASER_READINGS_H__
 #define DFKI_LASER_READINGS_H__
+#include <stdint.h>
+#include <vector>
 
 namespace DFKI {
     struct LaserReadings {
