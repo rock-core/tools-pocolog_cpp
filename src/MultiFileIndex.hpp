@@ -23,6 +23,7 @@ class MultiFileIndex
         size_t globalStreamIdx;
     } __attribute__((packed));
     
+    bool verbose;
     std::vector<IndexEntry> index;
     std::vector<LogFile *> logFiles;
     std::vector<Stream *> streams;
@@ -32,8 +33,8 @@ class MultiFileIndex
 //     base::Time firstSampleTime;
 //     base::Time lastSampleTime;
 public:
-    MultiFileIndex(const std::vector<std::string> &fileNames);
-    MultiFileIndex();
+    MultiFileIndex(const std::vector<std::string> &fileNames, bool verbose = true);
+    MultiFileIndex(bool verbose = true);
     ~MultiFileIndex();
     
     const std::vector<Stream *> getAllStreams() const

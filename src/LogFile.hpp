@@ -31,7 +31,7 @@ class LogFile
     struct SampleHeaderData curSampleHeader;
     
 public:
-    LogFile(const std::string &fileName);
+    LogFile(const std::string &fileName, bool verbose = true);
     ~LogFile();
     
     std::string getFileName() const;

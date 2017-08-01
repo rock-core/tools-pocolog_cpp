@@ -11,6 +11,7 @@ class LogFile;
     
 class IndexFile
 {
+    bool verbose;
     std::vector<Index *> indices;
     std::vector<StreamDescription> streams;
 
@@ -24,9 +25,9 @@ public:
         static std::string getMagic();
     } __attribute__((packed));
     
-    IndexFile(std::string indexFileName, pocolog_cpp::LogFile& logFile);
+    IndexFile(std::string indexFileName, pocolog_cpp::LogFile& logFile, bool verbose = true);
     
-    IndexFile(LogFile& logFile);
+    IndexFile(LogFile& logFile, bool verbose = true);
     ~IndexFile();
     
     bool loadIndexFile(std::string indexFileName, LogFile& logFile);

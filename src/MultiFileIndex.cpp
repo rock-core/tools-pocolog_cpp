@@ -8,14 +8,14 @@
 namespace pocolog_cpp
 {
     
-MultiFileIndex::MultiFileIndex(const std::vector< std::string >& fileNames)
+MultiFileIndex::MultiFileIndex(const std::vector< std::string >& fileNames, bool verbose) : verbose(verbose)
 {
     createIndex(fileNames);
 }
 
-MultiFileIndex::MultiFileIndex()
+MultiFileIndex::MultiFileIndex(bool verbose) : verbose(verbose)
 {
-
+    
 }
 
 MultiFileIndex::~MultiFileIndex()
@@ -66,7 +66,8 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
             }
             streams.push_back(stream);
         }
-        std::cout << "Loading logfile Done " << curLogfile->getFileName() << std::endl;
+        if(verbose)
+            std::cout << "Loading logfile Done " << curLogfile->getFileName() << std::endl;
     }
 
     index.resize(globalSampleCount);
@@ -75,7 +76,8 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
     
     int lastPercentage = 0;
     
-    std::cout << "Building multi file index " << std::endl;
+    if(verbose)
+        std::cout << "Building multi file index " << std::endl;
     
     while(!streamMap.empty())
     {
@@ -110,10 +112,14 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
             std::cout << "\r" << lastPercentage << "% Done" << std::flush;
         }
     }
-    std::cout << "\r 100% Done";
-    std::cout << std::endl;
+    
+    if(verbose)
+    {
+        std::cout << "\r 100% Done";
+        std::cout << std::endl;
 
-    std::cout << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples " << std::endl;
+        std::cout << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples " << std::endl;
+    }
     
     
     
@@ -135,10 +141,14 @@ bool MultiFileIndex::createIndex(const std::vector< std::string >& fileNames)
 {
     for(std::vector< std::string>::const_iterator it = fileNames.begin(); it != fileNames.end(); it++ )
     {
-        std::cout << "Loading logfile " << *it << std::endl;
-        LogFile *curLogfile = new LogFile(*it);
+        if(verbose)
+            std::cout << "Loading logfile " << *it << std::endl;
+       
+        LogFile *curLogfile = new LogFile(*it, verbose);
         logFiles.push_back(curLogfile);
-        std::cout << "Loading logfile Done " << *it << std::endl;
+        
+        if(verbose)
+            std::cout << "Loading logfile Done " << *it << std::endl;
     }
 
     return createIndex(logFiles);

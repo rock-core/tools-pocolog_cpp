@@ -22,14 +22,14 @@ std::string IndexFile::IndexFileHeader::getMagic()
 }
 
     
-IndexFile::IndexFile(std::string indexFileName, LogFile &logFile)
-{
+IndexFile::IndexFile(std::string indexFileName, LogFile &logFile, bool verbose) : verbose(verbose)
+{    
     if(!loadIndexFile(indexFileName, logFile))
         throw std::runtime_error("Error, index is corrupted");
     
 }
 
-IndexFile::IndexFile(LogFile &logFile)
+IndexFile::IndexFile(LogFile &logFile, bool verbose) : verbose(verbose)
 {
     std::string indexFileName(logFile.getFileBaseName() + ".id2");
     if(!loadIndexFile(indexFileName, logFile))
@@ -91,11 +91,13 @@ bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& l
         
         streams.push_back(newStream);
         
-        
-        std::cout << "Stream " << newStream.getName() << " [" << newStream.getTypeName() << "]" <<std::endl;
-        std::cout << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds) 
-                    << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " [" 
-                    << (idx->getLastSampleTime() - idx->getFirstSampleTime()).toString(base::Time::Milliseconds , "%H:%M:%S") << "]" <<std::endl;
+        if(verbose)
+        {
+            std::cout << "Stream " << newStream.getName() << " [" << newStream.getTypeName() << "]" <<std::endl;
+            std::cout << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds) 
+                        << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " [" 
+                        << (idx->getLastSampleTime() - idx->getFirstSampleTime()).toString(base::Time::Milliseconds , "%H:%M:%S") << "]" <<std::endl;
+        }
         
     }
     
