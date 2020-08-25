@@ -22,7 +22,9 @@ InputDataStream::InputDataStream(const StreamDescription& desc, Index& index): S
 
 InputDataStream::~InputDataStream()
 {
-
+    if (m_registry) {
+        delete m_registry;
+    }
 }
 
 
