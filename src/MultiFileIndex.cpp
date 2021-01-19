@@ -109,7 +109,11 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
         if(lastPercentage != curPercentag)
         {
             lastPercentage = curPercentag;
-            std::cout << "\r" << lastPercentage << "% Done" << std::flush;
+            
+	    if(verbose)
+	    {
+	    	std::cout << "\r" << lastPercentage << "% Done" << std::flush;
+	    }
         }
     }
     
