@@ -1,6 +1,7 @@
 #include "MultiFileIndex.hpp"
 #include "Index.hpp"
 #include "IndexFile.hpp"
+#include <base-logging/Logging.hpp>
 #include <map>
 #include <iostream>
 #include "InputDataStream.hpp"
@@ -8,12 +9,12 @@
 namespace pocolog_cpp
 {
     
-MultiFileIndex::MultiFileIndex(const std::vector< std::string >& fileNames, bool verbose) : verbose(verbose)
+MultiFileIndex::MultiFileIndex(const std::vector< std::string >& fileNames, bool verbose)
 {
     createIndex(fileNames);
 }
 
-MultiFileIndex::MultiFileIndex(bool verbose) : verbose(verbose)
+MultiFileIndex::MultiFileIndex(bool verbose)
 {
     
 }
@@ -66,8 +67,8 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
             }
             streams.push_back(stream);
         }
-        if(verbose)
-            std::cout << "Loading logfile Done " << curLogfile->getFileName() << std::endl;
+        
+        LOG_INFO_S << "Loading logfile Done " << curLogfile->getFileName() << std::endl;
     }
 
     index.resize(globalSampleCount);
@@ -76,8 +77,7 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
     
     int lastPercentage = 0;
     
-    if(verbose)
-        std::cout << "Building multi file index " << std::endl;
+    LOG_INFO_S << "Building multi file index " << std::endl;
     
     while(!streamMap.empty())
     {
@@ -110,20 +110,12 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
         {
             lastPercentage = curPercentag;
             
-	    if(verbose)
-	    {
-	    	std::cout << "\r" << lastPercentage << "% Done" << std::flush;
-	    }
+	    	LOG_INFO_S << "\r" << lastPercentage << "% Done" << std::flush;
         }
     }
     
-    if(verbose)
-    {
-        std::cout << "\r 100% Done";
-        std::cout << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples " << std::endl;
-    }
-    
-    std::cout << std::endl;
+    LOG_INFO_S << "\r 100% Done";
+    LOG_INFO_S << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples " << std::endl;
     
     return true;
 
@@ -143,14 +135,12 @@ bool MultiFileIndex::createIndex(const std::vector< std::string >& fileNames)
 {
     for(std::vector< std::string>::const_iterator it = fileNames.begin(); it != fileNames.end(); it++ )
     {
-        if(verbose)
-            std::cout << "Loading logfile " << *it << std::endl;
+        LOG_INFO_S << "Loading logfile " << *it << std::endl;
        
-        LogFile *curLogfile = new LogFile(*it, verbose);
+        LogFile *curLogfile = new LogFile(*it);
         logFiles.push_back(curLogfile);
         
-        if(verbose)
-            std::cout << "Loading logfile Done " << *it << std::endl;
+        LOG_INFO_S << "Loading logfile Done " << *it << std::endl;
     }
 
     return createIndex(logFiles);

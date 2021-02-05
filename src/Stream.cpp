@@ -1,4 +1,5 @@
 #include "Stream.hpp"
+#include <base-logging/Logging.hpp>
 #include <iostream>
 #include <stdexcept>
 
@@ -31,7 +32,7 @@ bool pocolog_cpp::Stream::getSampleData(std::vector< uint8_t >& result, size_t s
     SampleHeaderData header;
     if(!loadSampleHeader(sampleHeaderPos, header))
     {
-        std::cout << "Could not load sample header of sample " << sampleNr << " samplePos " << samplePos << " headerPos " << sampleHeaderPos << std::endl;
+        LOG_ERROR_S << "Could not load sample header of sample " << sampleNr << " samplePos " << samplePos << " headerPos " << sampleHeaderPos << std::endl;
         return false;
     }
     result.resize(header.data_size);
@@ -40,7 +41,7 @@ bool pocolog_cpp::Stream::getSampleData(std::vector< uint8_t >& result, size_t s
     fileStream.read((char *) result.data(), header.data_size);
     if(!fileStream.good())
     {
-        std::cout << "Could not load sample data of sample " << sampleNr << std::endl;
+        LOG_ERROR_S << "Could not load sample data of sample " << sampleNr << std::endl;
     }
     return fileStream.good();
 }

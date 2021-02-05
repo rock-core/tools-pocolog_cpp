@@ -1,4 +1,5 @@
 #include "FileStream.hpp"
+#include <base-logging/Logging.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -55,14 +56,14 @@ bool pocolog_cpp::FileStream::open(const char* fileName, std::ios_base::openmode
     writePos = 0;
     this->fileName = fileName;
     
-//     std::cout << "File opened " << (fd > 0) << " file size " << fileSize  << " blk size " << blockSize << std::endl;
+    LOG_DEBUG_S << "File opened " << (fd > 0) << " file size " << fileSize  << " blk size " << blockSize << std::endl;
     
     return true;
 }
 
 bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
 {
-//     std::cout << "Loading Buffer " << position << std::endl;
+    LOG_DEBUG_S << "Loading Buffer " << position << std::endl;
     off_t newPos = ::lseek(fd, position, SEEK_SET);
     if(newPos == -1)
     {
@@ -77,7 +78,7 @@ bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
     
     off_t bytesToBlockEnd = (blockNr + 1) * blockSize - position;
     
-//     std::cout << "Reading " << bytesToBlockEnd << " bytes " << std::endl;
+    LOG_DEBUG_S << "Reading " << bytesToBlockEnd << " bytes " << std::endl;
     
     readBufferPosition = position;
     readBufferEndPosition = position + bytesToBlockEnd;
@@ -106,14 +107,14 @@ bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
         readSize += ret;
     }
     
-//     std::cout << "Buffer Loaded " << readBufferPosition << " end " << readBufferEndPosition << std::endl;
+    LOG_DEBUG_S << "Buffer Loaded " << readBufferPosition << " end " << readBufferEndPosition << std::endl;
     
     return true;
 }
 
 void pocolog_cpp::FileStream::read(char* buffer, size_t size)
 {
-//     std::cout << "Reading Bytes from pos " << readPos << std::endl;
+    LOG_DEBUG_S << "Reading Bytes from pos " << readPos << std::endl;
 
     size_t posInBuf = readPos - readBufferPosition;
     

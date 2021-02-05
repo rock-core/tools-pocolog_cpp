@@ -1,4 +1,5 @@
 #include "InputDataStream.hpp"
+#include <base-logging/Logging.hpp>
 #include <typelib/pluginmanager.hh>
 #include <typelib/registry.hh>
 
