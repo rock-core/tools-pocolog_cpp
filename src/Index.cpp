@@ -77,13 +77,13 @@ off_t Index::writeIndexToFile(std::fstream& indexFile, off_t prologPos, off_t in
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
 
-    LOG_DEBUG_S << "Wrinting " << buildBuffer.size() * sizeof(IndexInfo) / 1024 << " KBytes to index File " << std::endl;
+    LOG_DEBUG_S << "Wrinting " << buildBuffer.size() * sizeof(IndexInfo) / 1024 << " KBytes to index File ";
     
     indexFile.write((char *) buildBuffer.data(), buildBuffer.size() * sizeof(IndexInfo));
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
     
-    LOG_DEBUG_S << "Done new pos " << indexFile.tellp() << std::endl; 
+    LOG_DEBUG_S << "Done new pos " << indexFile.tellp(); 
     
     return indexFile.tellp();
 }
@@ -96,7 +96,7 @@ void Index::loadIndex(size_t sampleNr)
     if(sampleNr != curSampleNr)
     {
         std::streampos pos(prologue.dataPos + sampleNr * sizeof(IndexInfo));
-        LOG_DEBUG_S << "Seeking to " << pos << " start of index Data " << prologue.dataPos << " pos in data " << sampleNr * sizeof(IndexInfo) << std::endl;
+        LOG_DEBUG_S << "Seeking to " << pos << " start of index Data " << prologue.dataPos << " pos in data " << sampleNr * sizeof(IndexInfo);
         indexFile.seekg(std::streampos(prologue.dataPos + sampleNr * sizeof(IndexInfo)));
         if(!indexFile.good())
             throw std::runtime_error("Internal Error, index file is corrupted");

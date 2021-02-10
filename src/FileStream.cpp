@@ -56,19 +56,19 @@ bool pocolog_cpp::FileStream::open(const char* fileName, std::ios_base::openmode
     writePos = 0;
     this->fileName = fileName;
     
-    LOG_DEBUG_S << "File opened " << (fd > 0) << " file size " << fileSize  << " blk size " << blockSize << std::endl;
+    LOG_DEBUG_S << "File opened " << (fd > 0) << " file size " << fileSize  << " blk size " << blockSize;
     
     return true;
 }
 
 bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
 {
-    LOG_DEBUG_S << "Loading Buffer " << position << std::endl;
+    LOG_DEBUG_S << "Loading Buffer " << position;
     off_t newPos = ::lseek(fd, position, SEEK_SET);
     if(newPos == -1)
     {
         goodFlag = false;
-        std::cout << "Seek Failed" << std::endl;
+        LOG_ERROR_S << "Seek Failed";
         return false;
     }
 
@@ -78,7 +78,7 @@ bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
     
     off_t bytesToBlockEnd = (blockNr + 1) * blockSize - position;
     
-    LOG_DEBUG_S << "Reading " << bytesToBlockEnd << " bytes " << std::endl;
+    LOG_DEBUG_S << "Reading " << bytesToBlockEnd << " bytes ";
     
     readBufferPosition = position;
     readBufferEndPosition = position + bytesToBlockEnd;
@@ -94,7 +94,7 @@ bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
         if(ret < 0)
         {
             goodFlag = false;
-            std::cout << "Read Error" << std::endl;
+            LOG_ERROR_S << "Read Error";
             return false;
         }
         if(ret == 0)
@@ -107,14 +107,14 @@ bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
         readSize += ret;
     }
     
-    LOG_DEBUG_S << "Buffer Loaded " << readBufferPosition << " end " << readBufferEndPosition << std::endl;
+    LOG_DEBUG_S << "Buffer Loaded " << readBufferPosition << " end " << readBufferEndPosition;
     
     return true;
 }
 
 void pocolog_cpp::FileStream::read(char* buffer, size_t size)
 {
-    LOG_DEBUG_S << "Reading Bytes from pos " << readPos << std::endl;
+    LOG_DEBUG_S << "Reading Bytes from pos " << readPos;
 
     size_t posInBuf = readPos - readBufferPosition;
     

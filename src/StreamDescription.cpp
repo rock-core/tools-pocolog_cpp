@@ -60,15 +60,15 @@ StreamDescription::StreamDescription(const std::string& fileName, const std::vec
             m_streamName = readString(data, pos);
             m_typeName = readString(data, pos);
 
-            LOG_DEBUG_S << "StreamDescription: Found Stream, Name " << m_streamName << " of type " << m_typeName << std::endl;
+            LOG_DEBUG_S << "StreamDescription: Found Stream, Name " << m_streamName << " of type " << m_typeName;
             
             m_typeDescription = readString(data, pos);
-            LOG_DEBUG_S << "Found stream description : " << m_typeDescription << std::endl;
+            LOG_DEBUG_S << "Found stream description : " << m_typeDescription;
             m_metadata = readString(data, pos);
 
             if(pos != data.size())
             {
-                LOG_ERROR_S << "StreamDescription: Stream Declaration size is " << pos << " expected size " << data.size() << std::endl;
+                LOG_ERROR_S << "StreamDescription: Stream Declaration size is " << pos << " expected size " << data.size();
                 
                 throw std::runtime_error("StreamDescription: Error, stream declaration has wrong size");
             }

@@ -68,7 +68,7 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
             streams.push_back(stream);
         }
         
-        LOG_INFO_S << "Loading logfile Done " << curLogfile->getFileName() << std::endl;
+        LOG_INFO_S << "Loading logfile Done " << curLogfile->getFileName();
     }
 
     index.resize(globalSampleCount);
@@ -77,7 +77,7 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
     
     int lastPercentage = 0;
     
-    LOG_INFO_S << "Building multi file index " << std::endl;
+    LOG_INFO_S << "Building multi file index ";
     
     while(!streamMap.empty())
     {
@@ -115,7 +115,7 @@ bool MultiFileIndex::createIndex(const std::vector< LogFile* >& logfiles)
     }
     
     LOG_INFO_S << "\r 100% Done";
-    LOG_INFO_S << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples " << std::endl;
+    LOG_INFO_S << "Processed " << globalSampleNr << " of " << globalSampleCount << " samples ";
     
     return true;
 
@@ -135,12 +135,12 @@ bool MultiFileIndex::createIndex(const std::vector< std::string >& fileNames)
 {
     for(std::vector< std::string>::const_iterator it = fileNames.begin(); it != fileNames.end(); it++ )
     {
-        LOG_INFO_S << "Loading logfile " << *it << std::endl;
+        LOG_INFO_S << "Loading logfile " << *it;
        
         LogFile *curLogfile = new LogFile(*it);
         logFiles.push_back(curLogfile);
         
-        LOG_INFO_S << "Loading logfile Done " << *it << std::endl;
+        LOG_INFO_S << "Loading logfile Done " << *it;
     }
 
     return createIndex(logFiles);
