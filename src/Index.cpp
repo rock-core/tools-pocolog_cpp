@@ -67,7 +67,7 @@ off_t Index::writeIndexToFile(std::fstream& indexFile, off_t prologPos, off_t in
         throw std::runtime_error("Error writing index file");
     
     prologue.dataPos = indexDataPos;
-    LOG_DEBUG_S << "Found " << prologue.numSamples << " in stream " << name<< std::endl; 
+    LOG_DEBUG_S << "Found " << prologue.numSamples << " in stream " << name; 
     
     indexFile.write((char *) &prologue, sizeof(IndexPrologue));
     if(!indexFile.good())
