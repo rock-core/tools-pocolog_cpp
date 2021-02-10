@@ -6,4 +6,3 @@ rock_activate_cxx11()
 rock_init(pocolog_cpp 0.1)
 rock_standard_layout()
 
-add_compile_options(-DBASE_LOG_NAMESPACE=${PROJECT_NAME})
