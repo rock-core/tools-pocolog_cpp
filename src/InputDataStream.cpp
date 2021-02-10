@@ -46,12 +46,12 @@ std::string InputDataStream::getMetadataEntry(const std::string& entry) const
     if(it == desc.getMetadataMap().end())
     {
         std::string errorMessage = "Error: Logfile does not contain metadata " + entry + ". Maybe old logfile?";
-        std::cout << errorMessage << std::endl << "MetaData : " << std::endl;
+        LOG_ERROR_S << errorMessage << std::endl << "MetaData: ";
         for(auto e : desc.getMetadataMap())
         {
-            std::cout << e.first << " : " << e.second << std::endl;
+            LOG_ERROR_S << e.first << " : " << e.second;
         }
-        throw std::runtime_error("Error: Logfile does not contain metadata CXXType. Maybe old logfile?");
+        throw std::runtime_error("pocolog_cpp::InputDataStream::getMetadataEntry: " + errorMessage);
     }
         
     return it->second;
