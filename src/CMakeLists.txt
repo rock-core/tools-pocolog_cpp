@@ -25,6 +25,7 @@ rock_library(pocolog_cpp
         Write.hpp 
     DEPS_PKGCONFIG 
         base-types 
+        base-logging
         typelib
     DEPS_PLAIN 
         Boost_SYSTEM Boost_FILESYSTEM)

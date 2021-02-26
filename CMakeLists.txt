@@ -5,3 +5,4 @@ find_package(Rock)
 rock_activate_cxx11()
 rock_init(pocolog_cpp 0.1)
 rock_standard_layout()
+

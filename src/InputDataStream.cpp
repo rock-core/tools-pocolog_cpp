@@ -1,4 +1,5 @@
 #include "InputDataStream.hpp"
+#include <base-logging/Logging.hpp>
 #include <typelib/pluginmanager.hh>
 #include <typelib/registry.hh>
 
@@ -67,10 +68,10 @@ const std::string InputDataStream::getCXXType() const
     std::map<std::string, std::string>::const_iterator it = desc.getMetadataMap().find("rock_cxx_type_name");
     if(it == desc.getMetadataMap().end())
     {
-        std::cout << "Error: Logfile does not contain metadata CXXType. Maybe old logfile?" << std::endl << "MetaData : " << std::endl;
+        std::cout << "Error: Logfile does not contain metadata CXXType. Maybe old logfile?" << "MetaData : ";
         for(auto e : desc.getMetadataMap())
         {
-            std::cout << e.first << " : " << e.second << std::endl;
+            std::cout << e.first << " : " << e.second;
         }
         throw std::runtime_error("Error: Logfile does not contain metadata CXXType. Maybe old logfile?");
     }

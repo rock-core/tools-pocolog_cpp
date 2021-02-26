@@ -2,6 +2,7 @@
 #include "Stream.hpp"
 #include "Index.hpp"
 #include "LogFile.hpp"
+#include <base-logging/Logging.hpp>
 #include <string.h>
 #include <iostream>
 #include <cassert>
@@ -22,14 +23,14 @@ std::string IndexFile::IndexFileHeader::getMagic()
 }
 
     
-IndexFile::IndexFile(std::string indexFileName, LogFile &logFile, bool verbose) : verbose(verbose)
+IndexFile::IndexFile(std::string indexFileName, LogFile &logFile, bool verbose)
 {    
     if(!loadIndexFile(indexFileName, logFile))
         throw std::runtime_error("Error, index is corrupted");
     
 }
 
-IndexFile::IndexFile(LogFile &logFile, bool verbose) : verbose(verbose)
+IndexFile::IndexFile(LogFile &logFile, bool verbose)
 {
     std::string indexFileName(logFile.getFileBaseName() + ".id2");
     if(!loadIndexFile(indexFileName, logFile))
@@ -55,7 +56,7 @@ IndexFile::~IndexFile()
 
 bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& logFile)
 {
-//     std::cout << "Loading Index File " << std::endl;
+    LOG_DEBUG_S << "Loading Index File ";
     std::ifstream indexFile(indexFileName.c_str(), std::fstream::in | std::fstream::binary );
     
     if(!indexFile.good())
@@ -69,9 +70,9 @@ bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& l
 
     if(header.magic != header.getMagic())
     {
-        std::cout << "Magic is " << header.magic << std::endl;;
-        std::cout << "Magic should be " << header.getMagic() << std::endl;;
-        std::cout << "Error, index magic does not match" << std::endl;
+        LOG_ERROR_S << "Magic is " << header.magic;;
+        LOG_ERROR_S << "Magic should be " << header.getMagic();;
+        LOG_ERROR_S << "Error, index magic does not match";
         return false;
     }
     
@@ -93,14 +94,10 @@ bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& l
         
         streams.push_back(newStream);
         
-        if(verbose)
-        {
-            std::cout << "Stream " << newStream.getName() << " [" << newStream.getTypeName() << "]" <<std::endl;
-            std::cout << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds) 
-                        << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " [" 
-                        << (idx->getLastSampleTime() - idx->getFirstSampleTime()).toString(base::Time::Milliseconds , "%H:%M:%S") << "]" <<std::endl;
-        }
-        
+        LOG_INFO_S << "Stream " << newStream.getName() << " [" << newStream.getTypeName() << "]" <<std::endl;
+        LOG_INFO_S << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds) 
+                    << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " [" 
+                    << (idx->getLastSampleTime() - idx->getFirstSampleTime()).toString(base::Time::Milliseconds , "%H:%M:%S") << "]" <<std::endl;
     }
     
     return true;
@@ -120,7 +117,7 @@ Index& IndexFile::getIndexForStream(const StreamDescription& desc)
 
 bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
 {
-//     std::cout << "IndexFile: Creating Index File for logfile " << logFile.getFileName() << std::endl;
+    LOG_DEBUG_S << "IndexFile: Creating Index File for logfile " << logFile.getFileName();
     std::vector<char> writeBuffer;
     writeBuffer.resize(8096 * 1024);
     std::fstream indexFile;
@@ -164,7 +161,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 {
                     if(logFile.eof())
                     {
-                        std::cout << "IndexFile: Warning, log file seems to be truncated" << std::endl;
+                        LOG_WARN_S << "IndexFile: Warning, log file seems to be truncated";
                         break;
                     }
                     throw std::runtime_error("IndexFile: Error building index, log file seems corrupted");
@@ -180,7 +177,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 }
                 else
                 {
-                    std::cout << "IndexFile: Warning, ignoring truncated sample for stream " << indices[idx]->getName() << std::endl;
+                    LOG_WARN_S << "IndexFile: Warning, ignoring truncated sample for stream " << indices[idx]->getName();
                 }
             }
                 break;
@@ -190,7 +187,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
         }
         
     }
-//     std::cout << "IndexFile: Found " << streams.size() << " datastreams " << std::endl << std::flush;
+    LOG_DEBUG_S << "IndexFile: Found " << streams.size() << " datastreams " << std::flush;
 
     IndexFileHeader header;
     header.numStreams = streams.size();
@@ -205,7 +202,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
     off_t curDataPos = indices.size() * Index::getPrologueSize() + sizeof(IndexFileHeader);
     for(std::vector<Index* >::iterator it = indices.begin(); it != indices.end(); it++)
     {
-        std::cout << "Writing index for stream " << (*it)->getName() << " , num samples " << (*it)->getNumSamples() << std::endl;
+        LOG_INFO_S << "Writing index for stream " << (*it)->getName() << " , num samples " << (*it)->getNumSamples();
     
         //Write index prologue
         curDataPos = (*it)->writeIndexToFile(indexFile, curProloguePos, curDataPos);
@@ -218,7 +215,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
     }
     
     indexFile.close();
-//     std::cout << "done " << std::endl;
+    LOG_DEBUG_S << "done ";
     
     indices.clear();;
     

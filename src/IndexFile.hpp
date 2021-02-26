@@ -11,7 +11,6 @@ class LogFile;
     
 class IndexFile
 {
-    bool verbose;
     std::vector<Index *> indices;
     std::vector<StreamDescription> streams;
 

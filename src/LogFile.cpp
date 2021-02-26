@@ -2,6 +2,7 @@
 #include "StreamDescription.hpp"
 #include "InputDataStream.hpp"
 #include "IndexFile.hpp"
+#include <base-logging/Logging.hpp>
 #include <iostream>
          
 namespace pocolog_cpp
@@ -28,10 +29,10 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     nextBlockHeaderPos = firstBlockHeaderPos;
     gotBlockHeader = false;
 
-//     std::cout << "Found " << descriptions.size() << " stream in logfile " << getFileName() << std::endl;
+    LOG_DEBUG_S << "Found " << descriptions.size() << " stream in logfile " << getFileName();
     
     //load Index
-    IndexFile *indexFile = new IndexFile(*this, verbose);
+    IndexFile *indexFile = new IndexFile(*this);
     indexFiles.push_back(indexFile);
 
     //we need to start from the start, as Stream declarations may be any where
@@ -46,19 +47,19 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
         switch(it->getType())
         {
             case DataStreamType:
-//                 std::cout << "Creating InputDataStream " << it->getName() << std::endl;
+                    LOG_DEBUG_S << "Creating InputDataStream " << it->getName();
                     try
                     {
                         streams.push_back(new InputDataStream(*it, indexFile->getIndexForStream(*it)));
                     }
                     catch(...)
                     {
-                        std::cerr << "WARNING, skipping corrupted stream " << it->getName() << " of type " << it->getTypeName() << std::endl;
+                        std::cerr << "WARNING, skipping corrupted stream " << it->getName() << " of type " << it->getTypeName();
                     }
                 
                 break;
             default:
-                std::cout << "Ignoring stream " << it->getName() << std::endl;
+                LOG_INFO_S << "Ignoring stream " << it->getName();
                 break;
         }
     }
@@ -100,7 +101,7 @@ bool LogFile::loadStreamDescription(StreamDescription &result, std::streampos de
     nextBlockHeaderPos = descPos;
     if(!readNextBlockHeader())
     {
-        std::cout << "Failed to read block header " << std::endl;
+        LOG_ERROR_S << "Failed to read block header ";
         return false;
     }
     
@@ -109,7 +110,7 @@ bool LogFile::loadStreamDescription(StreamDescription &result, std::streampos de
     {
         if(eof())
         {
-            std::cout << "IndexFile: Warning, log file seems to be truncated" << std::endl;
+            LOG_ERROR_S << "IndexFile: Warning, log file seems to be truncated";
             return false;
         }
         throw std::runtime_error("IndexFile: Error building index, log file seems corrupted");
@@ -160,7 +161,7 @@ bool LogFile::readNextBlockHeader()
     logFile.read((char *) &curBlockHeader, sizeof(BlockHeader));
     if(!logFile.good())
     {
-//         std::cout << "Reading Block Header failedSample Pos is " << curBlockHeaderPos << std::endl;
+        LOG_ERROR_S << "Reading Block Header failedSample Pos is " << curBlockHeaderPos;
 // 
         return false;
     }

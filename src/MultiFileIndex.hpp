@@ -23,7 +23,6 @@ class MultiFileIndex
         size_t globalStreamIdx;
     } __attribute__((packed));
     
-    bool verbose;
     std::vector<IndexEntry> index;
     std::vector<LogFile *> logFiles;
     std::vector<Stream *> streams;
