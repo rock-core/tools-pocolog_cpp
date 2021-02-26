@@ -40,6 +40,23 @@ void InputDataStream::loadTypeLib()
     m_type = m_registry->build(desc.getTypeName());
 }
 
+std::string InputDataStream::getMetadataEntry(const std::string& entry) const
+{
+    std::map<std::string, std::string>::const_iterator it = desc.getMetadataMap().find(entry);
+    if(it == desc.getMetadataMap().end())
+    {
+        std::string errorMessage = "Error: Logfile does not contain metadata " + entry + ". Maybe old logfile?";
+        LOG_WARN_S << errorMessage << std::endl << "MetaData: ";
+        for(auto e : desc.getMetadataMap())
+        {
+            LOG_WARN_S << e.first << " : " << e.second;
+        }
+        throw std::runtime_error("pocolog_cpp::InputDataStream::getMetadataEntry: " + errorMessage);
+    }
+        
+    return it->second;
+}
+
 const Typelib::Type* InputDataStream::getType() const
 {
     return m_type; 
@@ -65,19 +82,12 @@ Typelib::Value InputDataStream::getTyplibValue(void *memoryOfType, size_t memory
 
 const std::string InputDataStream::getCXXType() const
 {
-    std::map<std::string, std::string>::const_iterator it = desc.getMetadataMap().find("rock_cxx_type_name");
-    if(it == desc.getMetadataMap().end())
-    {
-        std::cout << "Error: Logfile does not contain metadata CXXType. Maybe old logfile?" << "MetaData : ";
-        for(auto e : desc.getMetadataMap())
-        {
-            std::cout << e.first << " : " << e.second;
-        }
-        throw std::runtime_error("Error: Logfile does not contain metadata CXXType. Maybe old logfile?");
-    }
-        
-    return it->second;
+    return getMetadataEntry("rock_cxx_type_name");
 }
 
+const std::string InputDataStream::getTaskModel() const
+{
+    return getMetadataEntry("rock_task_model");
+}
 
 }

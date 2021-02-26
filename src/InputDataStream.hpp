@@ -22,6 +22,7 @@ protected:
     Typelib::Registry*   m_registry;
 
     void loadTypeLib();
+    std::string getMetadataEntry(const std::string& entry) const;
     
 public:
     InputDataStream(const StreamDescription &desc, Index &index);
@@ -30,6 +31,7 @@ public:
     Typelib::Type const* getType() const;
     
     const std::string getCXXType() const;
+    const std::string getTaskModel() const;
      
     size_t getTypeMemorySize() const
     {
