@@ -1,9 +1,9 @@
 require 'typelib'
-require 'simlog'
+require 'pocolog'
 require 'pp'
 
 include Typelib
-include Pocosim
+include Pocolog
 
 registry = Registry.import('laser_readings.h')
 
@@ -17,7 +17,7 @@ laser_stream = file.stream("Hokuyo", laser_t, true)
 sample = laser_t.new
 (1..100).each do |i|
     sample.stamp = i
-    sample.ranges.insert(i)
+    sample.ranges.push(i)
     laser_stream.write(Time.at(1, 2), Time.at(3, 4), sample)
 end
 
