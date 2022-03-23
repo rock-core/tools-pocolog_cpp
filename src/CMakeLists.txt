@@ -1,4 +1,4 @@
-find_package( Boost COMPONENTS system filesystem)
+find_package( Boost COMPONENTS system filesystem program_options)
 rock_library(pocolog_cpp 
     SOURCES 
         Format.cpp 
@@ -30,23 +30,30 @@ rock_library(pocolog_cpp
     DEPS_PLAIN 
         Boost_SYSTEM Boost_FILESYSTEM)
 
-rock_executable(indexer
+rock_executable(indexer NOINSTALL
     SOURCES indexer.cpp
     DEPS pocolog_cpp
     DEPS_PKGCONFIG base-types typelib
 )
 
-rock_executable(multiIndexer
+rock_executable(multiIndexer NOINSTALL
     SOURCES multiIndexTest.cpp
     DEPS pocolog_cpp
     DEPS_PKGCONFIG base-types typelib
 )
-rock_executable(speedTest
+rock_executable(speedTest NOINSTALL
     SOURCES speedTest.cpp
 )
 
-rock_executable(example_old
+rock_executable(example_old NOINSTALL
     SOURCES example_old.cpp
     DEPS pocolog_cpp
     DEPS_PKGCONFIG base-types typelib
+)
+
+rock_executable(pocolog-extract
+    SOURCES pocolog-extract_main.cpp
+    DEPS pocolog_cpp
+    DEPS_PLAIN
+        Boost_PROGRAM_OPTIONS
 )
