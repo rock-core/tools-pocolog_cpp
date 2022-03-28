@@ -7,6 +7,12 @@
 #include <typelib/csvoutput.hh>
 #include <sstream>
 #include <boost/program_options.hpp>
+#include <yaml-cpp/yaml.h>
+
+
+#define FMT_BOLD "\033[1m"
+#define FMT_UNDERLINE "\033[4m"
+#define FMT_END "\033[0m"
 
 
 using namespace pocolog_cpp;
@@ -67,7 +73,7 @@ void extract(InputDataStream *stream,
 
     while(idx < stop_idx)
     {
-        Typelib::Value v = stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), idx);
+        stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), idx);
         std::cout << Typelib::csv(*stream->getType(), buffer.data(), sep, false, sdelim) << "\n";
         idx++;
     }
@@ -81,6 +87,7 @@ struct Args{
     base::Time stop_time;
     std::string filepath;
     std::string stream_name;
+    std::string mode = "extract";
 };
 
 
@@ -110,7 +117,9 @@ Args parse_args(int argc, char** argv)
         ("to",            po::value<std::string>(&stop_time_str),      "End time for extraction. To be given in the format specified by 'time_format'.")
         ("time_format,f", po::value<std::string>(&time_format),        "Format string that explains hwo timestamps are passed (from/to). Default: '%Y%m%d-%H:%M:%S'")
 
-        ("streamname,s",    po::value<std::string>(&(ret.stream_name)),    "Save list of unresoved transform to this file")
+        ("streamname,s",  po::value<std::string>(&(ret.stream_name)),  "Save list of unresoved transform to this file")
+
+        ("info,i",         "Extract information about streams in YAMl format")
         ;
     //These arguments are positional and thuis should not be show to the user
     po::options_description hidden("Hidden");
@@ -138,6 +147,7 @@ Args parse_args(int argc, char** argv)
         std::cerr << std::string("Error parsing command line arguments: ")+ex.what()+"\n";
         exit(EXIT_FAILURE);
     }
+
     po::notify(vm);
 
     if (vm.count("help"))
@@ -157,6 +167,11 @@ Args parse_args(int argc, char** argv)
         ret.stop_time = ret.stop_time.fromString(stop_time_str, base::Time::Resolution::Seconds, time_format);
     }
 
+    if (vm.count("info"))
+    {
+        ret.mode = "info";
+    }
+
     if (ret.filepath == "")
     {
         std::cerr << "No input logfile was given" << std::endl;
@@ -170,27 +185,169 @@ Args parse_args(int argc, char** argv)
     return ret;
 }
 
-int main(int argc, char **argv)
+
+struct StreamSummary{
+    base::Time firstSampleTime;
+    base::Time lastSampleTime;
+    std::string dataTypeName;
+    std::string name;
+    size_t nSamples;
+};
+
+
+struct FileSummary{
+    std::string fileName;
+    std::vector<StreamSummary> streams;
+    base::Time firstSampleTime;
+    base::Time lastSampleTime;
+};
+
+StreamSummary extract_summary(const Stream& stream)
 {
-    Args args = parse_args(argc, argv);
+    StreamSummary ret;
+    ret.name = stream.getName();
+    ret.firstSampleTime = stream.getFistSampleTime();
+    ret.lastSampleTime = stream.getLastSampleTime();
+    ret.nSamples = stream.getSize();
+    ret.dataTypeName = stream.getDescription().getTypeName();
+    return ret;
+}
 
+void pretty_print(StreamSummary const &m){
+    std::cout << FMT_BOLD << m.name << FMT_END << std::endl;
+    std::cout << "  " << m.nSamples << " samples from "
+              <<  m.firstSampleTime.toString() << " to " << m.lastSampleTime.toString()
+              << " [" <<m.lastSampleTime - m.firstSampleTime << "]" << std::endl;
+}
 
+FileSummary extract_summary(pocolog_cpp::LogFile& logfile)
+{
+    FileSummary ret;
 
-    // Open log file
-    std::clog << "Reading Log file... " << std::endl;
-    pocolog_cpp::LogFile logfile(args.filepath);
-    std::clog << "Log file read" << std::endl;
+    ret.fileName = logfile.getFileName();
 
-
-    // Initialize stream
-    Stream *stream_base = &(logfile.getStream(args.stream_name));
-    InputDataStream *stream = dynamic_cast<InputDataStream *>(stream_base);
-    if(!stream){
-        throw std::runtime_error("Could not cast stream");
+    for(const Stream* stream : logfile.getStreams())
+    {
+        ret.streams.push_back(extract_summary(*stream));
     }
 
-    // Extract
-    extract(stream, args.start_time, args.stop_time);
+    // Extract earlied and latest sample of all streams
+    if(ret.streams.size() > 0) {
+        ret.firstSampleTime = base::Time::fromMicroseconds(INT64_MAX);
+        ret.lastSampleTime = base::Time::fromMicroseconds(0);
 
-    return 0;
+        for(StreamSummary& summary : ret.streams){
+            if(summary.nSamples > 0){
+                if(summary.firstSampleTime < ret.firstSampleTime){
+                    ret.firstSampleTime = summary.firstSampleTime;
+                }
+                if(summary.lastSampleTime > ret.lastSampleTime){
+                    ret.lastSampleTime = summary.lastSampleTime;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
+void pretty_print(FileSummary const &m)
+{
+    std::cout << std::endl;
+    std::cout << "Logfile " << FMT_BOLD << FMT_UNDERLINE << m.fileName << FMT_END << " has the following streams: " << std::endl;
+    for(const StreamSummary& ssummary : m.streams)
+    {
+        pretty_print(ssummary);
+    }
+}
+
+std::string to_yaml(FileSummary const &m)
+{
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    out << YAML::Key << "file_name";
+    out << YAML::Value << m.fileName;
+    out << YAML::Key << "first_sample_time";
+    out << YAML::Value << m.firstSampleTime.toString();
+    out << YAML::Key << "last_sample_time";
+    out << YAML::Value << m.lastSampleTime.toString();
+    out << YAML::Key << "streams";
+    out << YAML::Value << YAML::BeginSeq;
+
+    for(const StreamSummary& summary : m.streams){
+        out << YAML::BeginMap;
+        out << YAML::Key << "name" << YAML::Value << summary.name;
+        out << YAML::Key << "n_samples" << YAML::Value << summary.nSamples;
+        if(summary.nSamples){
+            out << YAML::Key << "first_sample_time" << YAML::Value << summary.firstSampleTime.toString();
+            out << YAML::Key << "last_sample_time" << YAML::Value << summary.lastSampleTime.toString();
+        }
+        out << YAML::Key << "data_type_name" << YAML::Value << summary.dataTypeName;
+        out << YAML::EndMap;
+    }
+    out << YAML::EndSeq;
+    return out.c_str();
+}
+
+
+int do_main(Args& args){
+    // Open log file
+    std::clog << "Reading logfile '" << args.filepath << "'..." << std::flush;
+    pocolog_cpp::LogFile logfile(args.filepath);
+    std::clog << " OK" << std::endl;
+
+    if(args.mode == "info")
+    {
+        FileSummary summary = extract_summary(logfile);
+        std::cout << to_yaml(summary) <<std::endl;
+        exit(EXIT_SUCCESS);
+    }
+
+    if(args.stream_name.empty())
+    {
+        std::clog << "\nNo Stream name was specified!" <<std::endl;
+        FileSummary summary = extract_summary(logfile);
+        pretty_print(summary);
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize stream
+    try{
+        Stream *stream_base = &(logfile.getStream(args.stream_name));
+        InputDataStream *stream = dynamic_cast<InputDataStream *>(stream_base);
+        if(!stream){
+            throw std::runtime_error("Could not cast stream");
+        }
+
+        // Extract
+        extract(stream, args.start_time, args.stop_time);
+    }
+    catch(std::runtime_error& err)
+    {
+        std::cerr << "Error: " << err.what();
+        exit(EXIT_FAILURE);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+int main(int argc, char **argv)
+{
+    Args args;
+    try{
+        args = parse_args(argc, argv);
+    }
+    catch(std::exception& err){
+        std::cout << "Error parsing arguments: " << err.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    try{
+        return do_main(args);
+    }catch(std::exception& err){
+        std::cerr << std::endl;
+        std::cerr << "Error: " << err.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 }

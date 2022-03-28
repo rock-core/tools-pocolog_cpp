@@ -28,6 +28,11 @@ public:
     { 
         return desc.getType() != UnknownStreamType; 
     }
+
+    const StreamDescription& getDescription() const
+    {
+        return desc;
+    }
     
     std::string getName() const
     {

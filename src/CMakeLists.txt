@@ -53,6 +53,7 @@ rock_executable(example_old NOINSTALL
 
 rock_executable(pocolog-extract
     SOURCES pocolog-extract_main.cpp
+    DEPS_PKGCONFIG yaml-cpp
     DEPS pocolog_cpp
     DEPS_PLAIN
         Boost_PROGRAM_OPTIONS
