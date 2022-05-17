@@ -8,6 +8,8 @@
 #include <sstream>
 #include <boost/program_options.hpp>
 #include <yaml-cpp/yaml.h>
+#include <iostream>
+#include <sstream>
 
 
 #define FMT_BOLD "\033[1m"
@@ -40,7 +42,10 @@ size_t fast_forward_to(InputDataStream *dataStream, const base::Time& time)
 }
 
 void extract(InputDataStream *stream,
-             const base::Time& start_time, const base::Time& stop_time)
+             const base::Time& start_time, const base::Time& stop_time,
+             const std::vector<std::string> field_names = std::vector<std::string>(),
+             bool print_header=true,
+             std::string ofolder="", std::string ofsuffix=".dat")
 {
     std::string sep = ",";
     std::string sdelim = "\"";
@@ -57,12 +62,31 @@ void extract(InputDataStream *stream,
         stop_idx = fast_forward_to(stream, stop_time);
     }
 
-    // Write CSV header
-    std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), sep, sdelim) << std::endl;
-
     // Initialize buffer
     std::vector<uint8_t> buffer;
     buffer.resize(stream->getTypeMemorySize());
+
+    // Write CSV header
+    if(print_header){
+        if(field_names.empty()){
+            std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), sep, sdelim) << std::endl;
+        }
+        else{
+            size_t i_fields = 0;
+            for(const std::string& field_name : field_names){
+                Typelib::Value v(buffer.data(), *stream->getType());
+                Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
+
+                std::cout << Typelib::csv_header(f.getType(), stream->getName()+"." + field_name, sep, sdelim);
+                if(i_fields < field_names.size()-1){
+                    std::cout << ",";
+                }else{
+                    std::cout << "\n";
+                }
+                i_fields++;
+            }
+        }
+    }
 
     // Iterate samples
     size_t start_idx = idx;
@@ -74,7 +98,56 @@ void extract(InputDataStream *stream,
     while(idx < stop_idx)
     {
         stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), idx);
-        std::cout << Typelib::csv(*stream->getType(), buffer.data(), sep, false, sdelim) << "\n";
+        if(field_names.empty()){
+            std::cout << Typelib::csv(*stream->getType(), buffer.data(), sep, false, sdelim) << "\n";
+        }
+        else{
+            size_t i_fields = 0;
+            for(const std::string& field_name : field_names){
+                Typelib::Value v(buffer.data(), *stream->getType());
+                Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
+
+                if(ofolder.empty()){
+                    //TO CSV
+                    std::cout << Typelib::csv(f.getType(), f.getData(), sep, false, sdelim);
+                    if(i_fields < field_names.size()-1){
+                         std::cout << ",";
+                    }else{
+                        std::cout << "\n";
+                    }
+                }else{
+                    //TO FILES
+
+                    // FIXME: here I assemble the filename under the assumtion that the
+                    //        stream data type has a "time" field. This has to be fixed!
+                    Typelib::Value timestamp = Typelib::FieldGetter().apply(v, "time");
+                    std::stringstream ss;
+                    ss << Typelib::csv(timestamp.getType(), timestamp.getData(), sep, false, sdelim);
+
+                    std::string filepath = ofolder+"/"+ss.str()+"-"+field_name+ofsuffix;
+                    std::ofstream ostream(filepath, std::fstream::binary);
+                    if(!ostream.is_open()){
+                        throw(std::runtime_error("Can't create output file " + filepath));
+                    }
+                    const Typelib::Type& g = f.getType();
+                    const Typelib::Container* arr = dynamic_cast<const Typelib::Container*>(&g);
+                    if(!arr){
+                        throw(std::runtime_error("writing to files is currently only implemented for Container Typed fields"));
+                    }
+                    size_t n_elems = arr->getElementCount(f.getData());
+                    for(size_t i = 0; i < n_elems; i++)
+                    {
+                        Typelib::Value elem = arr->getElement(f.getData(), i);
+                        ostream.write((char*)elem.getData(), elem.getType().getSize());
+                    }
+                    ostream.close();
+                }
+
+
+                i_fields++;
+            }
+        }
+
         idx++;
     }
 
@@ -87,7 +160,11 @@ struct Args{
     base::Time stop_time;
     std::string filepath;
     std::string stream_name;
+    std::vector<std::string> fields;
     std::string mode = "extract";
+    bool write_header = true;
+    std::string output_folder="";
+    std::string out_file_suffix=".dat";
 };
 
 
@@ -113,13 +190,31 @@ Args parse_args(int argc, char** argv)
     desc.add_options()
         ("help,h",          "Produce help message")
 
-        ("from",          po::value<std::string>(&start_time_str),     "Start time for extraction. To be given in the format specified by 'time_format'.")
-        ("to",            po::value<std::string>(&stop_time_str),      "End time for extraction. To be given in the format specified by 'time_format'.")
-        ("time_format,f", po::value<std::string>(&time_format),        "Format string that explains hwo timestamps are passed (from/to). Default: '%Y%m%d-%H:%M:%S'")
+        ("from",          po::value<std::string>(&start_time_str),
+         "Start time for extraction. To be given in the format specified by 'time_format'.")
 
-        ("streamname,s",  po::value<std::string>(&(ret.stream_name)),  "Save list of unresoved transform to this file")
+        ("to",            po::value<std::string>(&stop_time_str),
+         "End time for extraction. To be given in the format specified by 'time_format'.")
 
-        ("info,i",         "Extract information about streams in YAMl format")
+        ("time_format,tf", po::value<std::string>(&time_format),
+         "Format string that explains hwo timestamps are passed (from/to). Default: '%Y%m%d-%H:%M:%S'")
+
+        ("streamname,s",  po::value<std::string>(&(ret.stream_name)),
+         "Name of the stream to extract")
+
+        ("fields,f",      po::value<std::vector<std::string>>(&(ret.fields))->multitoken(),
+         "Blank separated list of file names to extract. If not given, all filed of the stream are extracted.")
+
+        ("out_folder,of",      po::value<std::string>(&(ret.output_folder)),
+             "Write individual files for each sample/file instead of CSV to the output specified by this argument folder.")
+        ("out_file_suffix,ofs",      po::value<std::string>(&(ret.out_file_suffix)),
+             "Suffix of files writte to 'out_folder'. Default is .dat")
+
+        ("no_header",
+             "Don't write CSV header when extracting data")
+
+        ("info,i",
+         "Extract information about streams in YAMl format")
         ;
     //These arguments are positional and thuis should not be show to the user
     po::options_description hidden("Hidden");
@@ -172,6 +267,11 @@ Args parse_args(int argc, char** argv)
         ret.mode = "info";
     }
 
+    if (vm.count("no_header"))
+    {
+        ret.write_header = false;
+    }
+
     if (ret.filepath == "")
     {
         std::cerr << "No input logfile was given" << std::endl;
@@ -185,11 +285,17 @@ Args parse_args(int argc, char** argv)
     return ret;
 }
 
+struct FieldSummary{
+    std::string fieldName;
+    std::string typeName;
+};
+
 
 struct StreamSummary{
     base::Time firstSampleTime;
     base::Time lastSampleTime;
     std::string dataTypeName;
+    std::vector<FieldSummary> fields;
     std::string name;
     size_t nSamples;
 };
@@ -202,6 +308,26 @@ struct FileSummary{
     base::Time lastSampleTime;
 };
 
+std::vector<FieldSummary> extract_fields(const Stream& stream){
+    std::vector<FieldSummary> ret;
+
+    const Stream *stream_base = &(stream);
+    const InputDataStream *istream = dynamic_cast<const InputDataStream *>(stream_base);
+    if( istream->getType()->getCategory() == Typelib::Type::Category::Compound ){
+        const Typelib::Compound* compound = dynamic_cast<const Typelib::Compound*>(istream->getType());
+        if(compound){
+            for(const Typelib::Field& field : compound->getFields()){
+                FieldSummary summary;
+                summary.fieldName = field.getName();
+                summary.typeName = field.getType().getName();
+                ret.push_back(summary);
+            }
+        }
+    }
+
+    return ret;
+}
+
 StreamSummary extract_summary(const Stream& stream)
 {
     StreamSummary ret;
@@ -210,6 +336,8 @@ StreamSummary extract_summary(const Stream& stream)
     ret.lastSampleTime = stream.getLastSampleTime();
     ret.nSamples = stream.getSize();
     ret.dataTypeName = stream.getDescription().getTypeName();
+    ret.fields = extract_fields(stream);
+
     return ret;
 }
 
@@ -220,19 +348,27 @@ void pretty_print(StreamSummary const &m){
               << " [" <<m.lastSampleTime - m.firstSampleTime << "]" << std::endl;
 }
 
-FileSummary extract_summary(pocolog_cpp::LogFile& logfile)
+
+FileSummary extract_summary(pocolog_cpp::LogFile& logfile, const std::string& stream_name="")
 {
     FileSummary ret;
 
     ret.fileName = logfile.getFileName();
 
-    for(const Stream* stream : logfile.getStreams())
-    {
-        ret.streams.push_back(extract_summary(*stream));
+
+
+    if(stream_name.empty()){
+        for(const Stream* stream : logfile.getStreams())
+        {
+            ret.streams.push_back(extract_summary(*stream));
+        }
+    }
+    else{
+        ret.streams.push_back(extract_summary(logfile.getStream(stream_name)));
     }
 
-    // Extract earlied and latest sample of all streams
     if(ret.streams.size() > 0) {
+        // Extract earlied and latest sample of all streams
         ret.firstSampleTime = base::Time::fromMicroseconds(INT64_MAX);
         ret.lastSampleTime = base::Time::fromMicroseconds(0);
 
@@ -245,8 +381,22 @@ FileSummary extract_summary(pocolog_cpp::LogFile& logfile)
                     ret.lastSampleTime = summary.lastSampleTime;
                 }
             }
+
+            // Extract fields for all stream types
+            Stream *stream_base = &(logfile.getStream(summary.name));
+            InputDataStream *istream = dynamic_cast<InputDataStream *>(stream_base);
+            if( istream->getType()->getCategory() == Typelib::Type::Category::Compound ){
+                const Typelib::Compound* compound = dynamic_cast<const Typelib::Compound*>(istream->getType());
+                if(compound){
+                    for(const Typelib::Field& field : compound->getFields()){
+                        field.getName();
+                    }
+                }
+            }
         }
+
     }
+
 
     return ret;
 }
@@ -283,8 +433,21 @@ std::string to_yaml(FileSummary const &m)
             out << YAML::Key << "last_sample_time" << YAML::Value << summary.lastSampleTime.toString();
         }
         out << YAML::Key << "data_type_name" << YAML::Value << summary.dataTypeName;
+
+        if(summary.fields.size() > 0){
+            out << YAML::Key << "fields";
+            out << YAML::BeginSeq;
+            for(const FieldSummary& field : summary.fields){
+                out << YAML::BeginMap;
+                out << YAML::Key << "name" << field.fieldName;
+                out << YAML::Key << "data_type_name" << field.typeName;
+                out << YAML::EndMap;
+            }
+            out << YAML::EndSeq;
+        }
         out << YAML::EndMap;
     }
+
     out << YAML::EndSeq;
     return out.c_str();
 }
@@ -298,7 +461,7 @@ int do_main(Args& args){
 
     if(args.mode == "info")
     {
-        FileSummary summary = extract_summary(logfile);
+        FileSummary summary = extract_summary(logfile, args.stream_name);
         std::cout << to_yaml(summary) <<std::endl;
         exit(EXIT_SUCCESS);
     }
@@ -320,7 +483,9 @@ int do_main(Args& args){
         }
 
         // Extract
-        extract(stream, args.start_time, args.stop_time);
+        extract(stream, args.start_time, args.stop_time,
+                args.fields, args.write_header,
+                args.output_folder,args.out_file_suffix);
     }
     catch(std::runtime_error& err)
     {
