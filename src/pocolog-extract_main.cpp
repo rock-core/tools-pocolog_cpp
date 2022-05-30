@@ -125,10 +125,12 @@ void extract(InputDataStream *stream,
                     ss << Typelib::csv(timestamp.getType(), timestamp.getData(), sep, false, sdelim);
 
                     std::string filepath = ofolder+"/"+ss.str()+"-"+field_name+ofsuffix;
+
                     std::ofstream ostream(filepath, std::fstream::binary);
                     if(!ostream.is_open()){
                         throw(std::runtime_error("Can't create output file " + filepath));
                     }
+
                     const Typelib::Type& g = f.getType();
                     const Typelib::Container* arr = dynamic_cast<const Typelib::Container*>(&g);
                     if(!arr){
@@ -143,7 +145,7 @@ void extract(InputDataStream *stream,
                     ostream.close();
                 }
 
-
+                Typelib::destroy(v);
                 i_fields++;
             }
         }
