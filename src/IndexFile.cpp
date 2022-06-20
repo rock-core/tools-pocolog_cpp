@@ -125,6 +125,8 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
 
     indexFile.open(indexFileName.c_str(), std::fstream::out | std::fstream::binary | std::fstream::trunc);
     
+    std::vector<Index> foundIndices;
+    std::vector<StreamDescription> foundStreams;
     
     
     while(logFile.readNextBlockHeader())
@@ -144,15 +146,14 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                     break;
                 }
                 
-                streams.push_back(newStream);
+                foundStreams.push_back(newStream);
                 
-                Index *newIndex = new Index(newStream, descPos);
                 size_t index = newStream.getIndex();
-                if(index != indices.size() )
+                if(index != foundIndices.size() )
                 {
                     throw std::runtime_error("IndexFile: Error building Index, Unexpected stream index");
                 }
-                indices.push_back(newIndex);
+                foundIndices.emplace_back(newStream, descPos);
                 break;
             }
             case DataBlockType:
@@ -168,16 +169,16 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 }
                 
                 size_t idx = logFile.getSampleStreamIdx();
-                if(idx >= indices.size())
+                if(idx >= foundIndices.size())
                     throw std::runtime_error("Error: Corrupt log file " + logFile.getFileName() + ", got sample for nonexisting stream " + boost::lexical_cast<std::string>(idx) );
                 
                 if(logFile.checkSampleComplete())
                 {
-                    indices[idx]->addSample(logFile.getSamplePos(), logFile.getSampleTime());
+                    foundIndices[idx].addSample(logFile.getSamplePos(), logFile.getSampleTime());
                 }
                 else
                 {
-                    LOG_WARN_S << "IndexFile: Warning, ignoring truncated sample for stream " << indices[idx]->getName();
+                    LOG_WARN_S << "IndexFile: Warning, ignoring truncated sample for stream " << foundIndices[idx].getName();
                 }
             }
                 break;
@@ -187,10 +188,10 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
         }
         
     }
-    LOG_DEBUG_S << "IndexFile: Found " << streams.size() << " datastreams " << std::flush;
+    LOG_DEBUG_S << "IndexFile: Found " << foundStreams.size() << " datastreams " << std::flush;
 
     IndexFileHeader header;
-    header.numStreams = streams.size();
+    header.numStreams = foundStreams.size();
     
     assert(header.magic == header.getMagic());
     
@@ -199,25 +200,22 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
         throw std::runtime_error("IndexFile: Error writing index header");
     
     off_t curProloguePos = sizeof(IndexFileHeader);
-    off_t curDataPos = indices.size() * Index::getPrologueSize() + sizeof(IndexFileHeader);
-    for(std::vector<Index* >::iterator it = indices.begin(); it != indices.end(); it++)
+    off_t curDataPos = foundIndices.size() * Index::getPrologueSize() + sizeof(IndexFileHeader);
+    for ( auto curIdx : foundIndices )
     {
-        LOG_INFO_S << "Writing index for stream " << (*it)->getName() << " , num samples " << (*it)->getNumSamples();
+        LOG_INFO_S << "Writing index for stream " << curIdx.getName() << " , num samples " << curIdx.getNumSamples();
     
         //Write index prologue
-        curDataPos = (*it)->writeIndexToFile(indexFile, curProloguePos, curDataPos);
+        curDataPos = curIdx.writeIndexToFile(indexFile, curProloguePos, curDataPos);
         curProloguePos += Index::getPrologueSize();
         
         if(!indexFile.good())
             throw std::runtime_error("IndexFile: Error writing index File");
         
-        delete *it;
     }
     
     indexFile.close();
     LOG_DEBUG_S << "done ";
-    
-    indices.clear();;
     
     return true;
 }
