@@ -10,6 +10,7 @@
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 
 #define FMT_BOLD "\033[1m"
@@ -18,6 +19,23 @@
 
 
 using namespace pocolog_cpp;
+
+struct Args{
+    base::Time start_time;
+    base::Time stop_time;
+    size_t start_idx = std::numeric_limits<size_t>::quiet_NaN();
+    size_t stop_idx = std::numeric_limits<size_t>::quiet_NaN();
+    std::string filepath;
+    std::string stream_name;
+    std::vector<std::string> fields;
+    std::string mode = "extract";
+    bool write_header = true;
+    std::string output_folder="";
+    std::string out_file_suffix=".dat";
+    bool add_idx = false;
+    bool add_time = true;
+};
+
 
 /*!
  * \brief fast_forward_to
@@ -42,43 +60,61 @@ size_t fast_forward_to(InputDataStream *dataStream, const base::Time& time)
 }
 
 void extract(InputDataStream *stream,
-             const base::Time& start_time, const base::Time& stop_time,
-             const std::vector<std::string> field_names = std::vector<std::string>(),
-             bool print_header=true,
-             std::string ofolder="", std::string ofsuffix=".dat")
+             Args& args)
 {
     std::string sep = ",";
     std::string sdelim = "\"";
 
 
-    // Fast forward to start time
+    // Fast forward to start time or index
     size_t idx = 0;
-    if(!start_time.isNull()){
-        idx = fast_forward_to(stream, start_time);
+    if( !args.start_time.isNull() ){
+        idx = fast_forward_to(stream, args.start_time);
+    }else{
+        idx = args.start_idx;
     }
 
     size_t stop_idx = stream->getSize();
-    if(!stop_time.isNull()){
-        stop_idx = fast_forward_to(stream, stop_time);
+    if( !args.stop_time.isNull() ){
+        stop_idx = fast_forward_to(stream, args.stop_time);
+    }
+    else if( std::isnan(args.stop_idx) ){
+        stop_idx = stream->getSize();
+    }else{
+        stop_idx = args.stop_idx;
     }
 
     // Initialize buffer
     std::vector<uint8_t> buffer;
     buffer.resize(stream->getTypeMemorySize());
 
+
+    std::clog << "Extracting "<<args.stream_name << " from " << args.filepath << "\n"
+              << "    start index: " << idx
+              << " (" << stream->getFileIndex().getSampleTime(idx).toString(base::Time::Resolution::Seconds)
+              <<")\n    stop index: " << stop_idx
+              << " (" << stream->getFileIndex().getSampleTime(stop_idx-1).toString(base::Time::Resolution::Seconds)
+              << ")" << std::endl;
+
     // Write CSV header
-    if(print_header){
-        if(field_names.empty()){
+    if(args.write_header){
+        if(args.add_idx){
+            std::cout << "log_idx" << sep;
+        }
+        if(args.add_time){
+            std::cout << "log_time" << sep;
+        }
+        if(args.fields.empty()){
             std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), sep, sdelim) << std::endl;
         }
         else{
             size_t i_fields = 0;
-            for(const std::string& field_name : field_names){
+            for(const std::string& field_name : args.fields){
                 Typelib::Value v(buffer.data(), *stream->getType());
                 Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
 
                 std::cout << Typelib::csv_header(f.getType(), stream->getName()+"." + field_name, sep, sdelim);
-                if(i_fields < field_names.size()-1){
+                if(i_fields < args.fields.size()-1){
                     std::cout << ",";
                 }else{
                     std::cout << "\n";
@@ -90,27 +126,30 @@ void extract(InputDataStream *stream,
 
     // Iterate samples
     size_t start_idx = idx;
-    std::clog << "Iterating samples\n" << "    start index: " << start_idx
-              << " ("<<stream->getFileIndex().getSampleTime(start_idx).toString(base::Time::Resolution::Seconds)
-              <<")\n    stop index: " <<stop_idx
-              << " ("<<stream->getFileIndex().getSampleTime(stop_idx-1).toString(base::Time::Resolution::Seconds) << std::endl;
-
     while(idx < stop_idx)
     {
         stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), idx);
-        if(field_names.empty()){
+
+        if(args.add_idx){
+            std::cout << idx << sep;
+        }
+        if(args.add_time){
+            std::cout << stream->getFileIndex().getSampleTime(idx).microseconds << sep;
+        }
+
+        if(args.fields.empty()){
             std::cout << Typelib::csv(*stream->getType(), buffer.data(), sep, false, sdelim) << "\n";
         }
         else{
             size_t i_fields = 0;
-            for(const std::string& field_name : field_names){
-                Typelib::Value v(buffer.data(), *stream->getType());
+            Typelib::Value v(buffer.data(), *stream->getType());
+            for(const std::string& field_name : args.fields){
                 Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
 
-                if(ofolder.empty()){
+                if(args.output_folder.empty()){
                     //TO CSV
                     std::cout << Typelib::csv(f.getType(), f.getData(), sep, false, sdelim);
-                    if(i_fields < field_names.size()-1){
+                    if(i_fields < args.fields.size()-1){
                          std::cout << ",";
                     }else{
                         std::cout << "\n";
@@ -118,13 +157,10 @@ void extract(InputDataStream *stream,
                 }else{
                     //TO FILES
 
-                    // FIXME: here I assemble the filename under the assumtion that the
-                    //        stream data type has a "time" field. This has to be fixed!
-                    Typelib::Value timestamp = Typelib::FieldGetter().apply(v, "time");
+                    // Filename will be the index in log file
                     std::stringstream ss;
-                    ss << Typelib::csv(timestamp.getType(), timestamp.getData(), sep, false, sdelim);
-
-                    std::string filepath = ofolder+"/"+ss.str()+"-"+field_name+ofsuffix;
+                    ss << std::setfill('0') << std::setw(8) << idx;
+                    std::string filepath = args.output_folder+"/"+ss.str()+"-"+field_name+args.out_file_suffix;
 
                     std::ofstream ostream(filepath, std::fstream::binary);
                     if(!ostream.is_open()){
@@ -145,9 +181,9 @@ void extract(InputDataStream *stream,
                     ostream.close();
                 }
 
-                Typelib::destroy(v);
                 i_fields++;
             }
+            Typelib::destroy(v);
         }
 
         idx++;
@@ -156,18 +192,6 @@ void extract(InputDataStream *stream,
     std::cout << std::endl;
     std::clog << "Finished at sample index " << idx <<". Processed " << idx -start_idx<<std::endl;
 }
-
-struct Args{
-    base::Time start_time;
-    base::Time stop_time;
-    std::string filepath;
-    std::string stream_name;
-    std::vector<std::string> fields;
-    std::string mode = "extract";
-    bool write_header = true;
-    std::string output_folder="";
-    std::string out_file_suffix=".dat";
-};
 
 
 void usage(boost::program_options::options_description& desc){
@@ -193,10 +217,10 @@ Args parse_args(int argc, char** argv)
         ("help,h",          "Produce help message")
 
         ("from",          po::value<std::string>(&start_time_str),
-         "Start time for extraction. To be given in the format specified by 'time_format'.")
+         "Start time for extraction. To be given in the format specified by 'time_format' or as int index.")
 
         ("to",            po::value<std::string>(&stop_time_str),
-         "End time for extraction. To be given in the format specified by 'time_format'.")
+         "End time for extraction. To be given in the format specified by 'time_format' or as int index.")
 
         ("time_format,tf", po::value<std::string>(&time_format),
          "Format string that explains hwo timestamps are passed (from/to). Default: '%Y%m%d-%H:%M:%S'")
@@ -214,6 +238,12 @@ Args parse_args(int argc, char** argv)
 
         ("no_header",
              "Don't write CSV header when extracting data")
+
+        ("no_time",
+                 "Don't write column with timestamp from stream")
+
+        ("write_index",
+                 "Write column with index from stream")
 
         ("info,i",
          "Extract information about streams in YAMl format")
@@ -256,12 +286,30 @@ Args parse_args(int argc, char** argv)
 
     if (vm.count("from"))
     {
-        ret.start_time = ret.start_time.fromString(start_time_str, base::Time::Resolution::Seconds, time_format);
+        try{
+            ret.start_time = ret.start_time.fromString(start_time_str, base::Time::Resolution::Seconds, time_format);
+        }catch(std::exception& ex){
+            try{
+                ret.start_idx = std::stol(start_time_str);
+            }catch(std::exception& err){
+                std::cerr << "The value given for --from does not seem to be a vald time stamp in the format " << time_format << ", and not a int index" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
     }
 
     if (vm.count("to"))
     {
-        ret.stop_time = ret.stop_time.fromString(stop_time_str, base::Time::Resolution::Seconds, time_format);
+        try{
+            ret.stop_time = ret.start_time.fromString(stop_time_str, base::Time::Resolution::Seconds, time_format);
+        }catch(std::exception& ex){
+            try{
+                ret.stop_idx = std::stol(stop_time_str);
+            }catch(std::exception& err){
+                std::cerr << "The value given for --to does not seem to be a vald time stamp in the format " << time_format << ", and not a int index" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
     }
 
     if (vm.count("info"))
@@ -272,6 +320,16 @@ Args parse_args(int argc, char** argv)
     if (vm.count("no_header"))
     {
         ret.write_header = false;
+    }
+
+    if (vm.count("no_time"))
+    {
+        ret.add_time = false;
+    }
+
+    if (vm.count("write_index"))
+    {
+        ret.add_idx = true;
     }
 
     if (ret.filepath == "")
@@ -485,9 +543,7 @@ int do_main(Args& args){
         }
 
         // Extract
-        extract(stream, args.start_time, args.stop_time,
-                args.fields, args.write_header,
-                args.output_folder,args.out_file_suffix);
+        extract(stream, args);
     }
     catch(std::runtime_error& err)
     {
