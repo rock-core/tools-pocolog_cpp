@@ -12,6 +12,8 @@
 #include <sstream>
 #include <iomanip>
 
+#include "named_vector_helpers.hpp"
+
 
 #define FMT_BOLD "\033[1m"
 #define FMT_UNDERLINE "\033[4m"
@@ -23,8 +25,8 @@ using namespace pocolog_cpp;
 struct Args{
     base::Time start_time;
     base::Time stop_time;
-    size_t start_idx = std::numeric_limits<size_t>::quiet_NaN();
-    size_t stop_idx = std::numeric_limits<size_t>::quiet_NaN();
+    size_t start_idx = 0;
+    size_t stop_idx = 0;
     std::string filepath;
     std::string stream_name;
     std::vector<std::string> fields;
@@ -34,6 +36,10 @@ struct Args{
     std::string out_file_suffix=".dat";
     bool add_idx = false;
     bool add_time = true;
+    std::string sep = ",";
+    std::string sdelim = "\"";
+    std::string timestamp_field = "";
+    std::string info_format = "pretty"; // yaml, csv, pretty
 };
 
 
@@ -59,30 +65,153 @@ size_t fast_forward_to(InputDataStream *dataStream, const base::Time& time)
     }
 }
 
+bool guess_field_with_timestamps(InputDataStream *stream, std::string& field_name)
+{
+    // Initialize buffer
+    std::vector<uint8_t> buffer;
+    buffer.resize(stream->getTypeMemorySize());
+
+    Typelib::Value v(buffer.data(), *stream->getType());
+    Typelib::Type::Category category = v.getType().getCategory();
+
+    if(category == Typelib::Type::Category::Compound)
+    {
+        const Typelib::Compound* compound = dynamic_cast<const Typelib::Compound*>(&v.getType());
+        std::vector<const Typelib::Field*> candidates;
+        for(const Typelib::Field& field: compound->getFields()){
+            if(field.getType().getName() == "/base/Time"){
+                candidates.push_back(&field);
+            }
+        }
+
+        if(candidates.size() > 1){
+            std::clog << "Multiple field have been identified that could possibly contain a sample time: " << std::endl;
+            for(size_t idx=0; idx < candidates.size(); idx++)
+            {
+                std::cout << candidates[idx]->getName() << " ";
+            }
+            return false;
+        }
+
+        if(candidates.size() < 1){
+            std::clog << "No field has been found that contains a sample time" << std::endl;
+            return false;
+        }
+
+        field_name = candidates[0]->getName();
+        std::clog << "Using field '" << field_name << "' as timestamps" << std::endl;
+        return true;
+    }
+    else{
+        std::clog << "Not a compound type" << std::endl;
+        return false;
+    }
+}
+
+
+void write_header(InputDataStream *stream,
+                  Args& args)
+{
+    // Initialize buffer
+    std::vector<uint8_t> buffer;
+    buffer.resize(stream->getTypeMemorySize());
+
+    Typelib::Value v(buffer.data(), *stream->getType());
+    Typelib::Type::Category category = v.getType().getCategory();
+
+    // Retrieve first sample so that there is data in dynamically sized strauctures (needed for named vector treatment)
+    stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), 0);
+
+    // Determine the element order if data type is a named vector
+    bool _is_named_vector = is_named_vector(v);
+    std::vector<std::string> named_vector_order;
+    if(_is_named_vector){
+        named_vector_order = extract_names(stream);
+    }
+
+    // Write index and log time column headers
+    if(args.add_idx){
+        std::cout << "log_idx" << args.sep;
+    }
+    if(args.add_time){
+        std::cout << "log_time" << args.sep;
+    }
+
+    //
+    // Write type field headers
+    //
+    // For non-compound types we use the standard csv function
+    if(category != Typelib::Type::Category::Compound){
+        std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), args.sep, args.sdelim) << std::endl;
+    }
+    // For compound types we call the csv header extraction for each field individually so that we can account for
+    //    a. extracting only a subset of all fields (field names where explicitly given)
+    //    b. special treatment of named vector
+    else{
+        size_t i_fields = 0;
+        for(const std::string& field_name : args.fields){
+            Typelib::Value v(buffer.data(), *stream->getType());
+            Typelib::Value fv = Typelib::FieldGetter().apply(v, field_name);
+
+            // Apply special treatment of named vector elements: Prefix each subfield with the name of
+            // the element according to the fixed element order
+            if(_is_named_vector && field_name == "elements")
+            {
+                const Typelib::Container* fc = dynamic_cast<const Typelib::Container*>(&fv.getType());
+                size_t n_elems = fc->getElementCount(fv.getData());
+                size_t i_elems = 0;
+                for( size_t name_idx=0; name_idx<n_elems; name_idx++ )
+                {
+                    Typelib::Value fcv = fc->getElement(fv.getData(), name_idx);
+                    std::cout << Typelib::csv_header(fcv.getType(),
+                                                     named_vector_order[name_idx],
+                                                     args.sep,
+                                                     args.sdelim);
+                    if(i_elems < n_elems-1){
+                        std::cout << args.sep;
+                    }
+                    i_elems++;
+                }
+            }
+            else{
+                std::cout << Typelib::csv_header(fv.getType(), field_name, args.sep, args.sdelim);
+            }
+
+            if(i_fields < args.fields.size()-1){
+                std::cout << args.sep;
+            }
+            i_fields++;
+        }
+    }
+
+    std::cout << std::endl;
+}
+
+
 void extract(InputDataStream *stream,
              Args& args)
 {
-    std::string sep = ",";
-    std::string sdelim = "\"";
+
 
 
     // Fast forward to start time or index
     size_t idx = 0;
+    size_t stop_idx = 0;
     if( !args.start_time.isNull() ){
         idx = fast_forward_to(stream, args.start_time);
     }else{
         idx = args.start_idx;
     }
 
-    size_t stop_idx = stream->getSize();
     if( !args.stop_time.isNull() ){
         stop_idx = fast_forward_to(stream, args.stop_time);
     }
-    else if( std::isnan(args.stop_idx) ){
+    else if( args.stop_idx == 0 ){
         stop_idx = stream->getSize();
     }else{
         stop_idx = args.stop_idx;
     }
+
 
     // Initialize buffer
     std::vector<uint8_t> buffer;
@@ -96,32 +225,38 @@ void extract(InputDataStream *stream,
               << " (" << stream->getFileIndex().getSampleTime(stop_idx-1).toString(base::Time::Resolution::Seconds)
               << ")" << std::endl;
 
+    Typelib::Value v(buffer.data(), *stream->getType());
+    Typelib::Type::Category category = v.getType().getCategory();
+
+    // Determine a fixed order of names for named vector types
+    bool _is_named_vector = is_named_vector(stream, (char*)buffer.data());
+    std::map<std::string, size_t> named_vector_sorting_map;
+    if( _is_named_vector )
+    {
+        std::vector <std::string> order = extract_names(stream);
+        for(size_t idx = 0; idx < order.size(); idx++)
+        {
+            named_vector_sorting_map[order[idx]] = idx;
+        }
+    }
+
+
+    // Set field names if empty
+    if(category == Typelib::Type::Category::Compound && args.fields.empty()){
+        std::list<Typelib::Field> fields = dynamic_cast<const Typelib::Compound*>(&v.getType())->getFields();
+        for(const Typelib::Field f : fields){
+            // Don't extract names field of named vector
+            if( _is_named_vector && f.getName() == "names"){
+                continue;
+            }
+
+            args.fields.push_back(f.getName());
+        }
+    }
+
     // Write CSV header
     if(args.write_header){
-        if(args.add_idx){
-            std::cout << "log_idx" << sep;
-        }
-        if(args.add_time){
-            std::cout << "log_time" << sep;
-        }
-        if(args.fields.empty()){
-            std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), sep, sdelim) << std::endl;
-        }
-        else{
-            size_t i_fields = 0;
-            for(const std::string& field_name : args.fields){
-                Typelib::Value v(buffer.data(), *stream->getType());
-                Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
-
-                std::cout << Typelib::csv_header(f.getType(), stream->getName()+"." + field_name, sep, sdelim);
-                if(i_fields < args.fields.size()-1){
-                    std::cout << ",";
-                }else{
-                    std::cout << "\n";
-                }
-                i_fields++;
-            }
-        }
+        write_header(stream, args);
     }
 
     // Iterate samples
@@ -130,27 +265,53 @@ void extract(InputDataStream *stream,
     {
         stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), idx);
 
+        // Write index
         if(args.add_idx){
-            std::cout << idx << sep;
-        }
-        if(args.add_time){
-            std::cout << stream->getFileIndex().getSampleTime(idx).microseconds << sep;
+            std::cout << idx << args.sep;
         }
 
-        if(args.fields.empty()){
-            std::cout << Typelib::csv(*stream->getType(), buffer.data(), sep, false, sdelim) << "\n";
+        // Write log time column
+        if(args.add_time){
+            std::cout << stream->getFileIndex().getSampleTime(idx).microseconds << args.sep;
         }
+
+        // For non-compound types we use the standard csv function
+        if(category != Typelib::Type::Category::Compound){
+            std::cout << Typelib::csv(*stream->getType(), buffer.data(), args.sep, false, args.sdelim) << "\n";
+        }
+        // For compound types we call the csv extraction for each field individually so that we can account for
+        //    a. extracting only a subset of all fields (field names where explicitly given)
+        //    b. special treatment of named vector
         else{
             size_t i_fields = 0;
             Typelib::Value v(buffer.data(), *stream->getType());
             for(const std::string& field_name : args.fields){
-                Typelib::Value f = Typelib::FieldGetter().apply(v, field_name);
+                Typelib::Value fv = Typelib::FieldGetter().apply(v, field_name);
 
                 if(args.output_folder.empty()){
                     //TO CSV
-                    std::cout << Typelib::csv(f.getType(), f.getData(), sep, false, sdelim);
+                    if(_is_named_vector && field_name == "names")
+                    {
+                        continue;
+                    }
+                    if(_is_named_vector && field_name == "elements")
+                    {
+                        Typelib::Value names_v = Typelib::FieldGetter().apply(v, "names");
+                        std::vector<Typelib::Value> reordered = sort_named_vector_values(names_v, fv, named_vector_sorting_map);
+                        size_t i_elems=0;
+                        for(Typelib::Value& elv : reordered){
+                            std::cout << Typelib::csv(elv.getType(), elv.getData(), args.sep, false, args.sdelim);
+                            if(i_elems < reordered.size()-1){
+                                std::cout << args.sep;
+                            }
+                            i_elems++;
+                        }
+                    }
+                    else{
+                        std::cout << Typelib::csv(fv.getType(), fv.getData(), args.sep, false, args.sdelim);
+                    }
                     if(i_fields < args.fields.size()-1){
-                         std::cout << ",";
+                         std::cout << args.sep;
                     }else{
                         std::cout << "\n";
                     }
@@ -167,15 +328,15 @@ void extract(InputDataStream *stream,
                         throw(std::runtime_error("Can't create output file " + filepath));
                     }
 
-                    const Typelib::Type& g = f.getType();
+                    const Typelib::Type& g = fv.getType();
                     const Typelib::Container* arr = dynamic_cast<const Typelib::Container*>(&g);
                     if(!arr){
                         throw(std::runtime_error("writing to files is currently only implemented for Container Typed fields"));
                     }
-                    size_t n_elems = arr->getElementCount(f.getData());
+                    size_t n_elems = arr->getElementCount(fv.getData());
                     for(size_t i = 0; i < n_elems; i++)
                     {
-                        Typelib::Value elem = arr->getElement(f.getData(), i);
+                        Typelib::Value elem = arr->getElement(fv.getData(), i);
                         ostream.write((char*)elem.getData(), elem.getType().getSize());
                     }
                     ostream.close();
@@ -246,7 +407,9 @@ Args parse_args(int argc, char** argv)
                  "Write column with index from stream")
 
         ("info,i",
-         "Extract information about streams in YAMl format")
+         "Print information about streams")
+        ("infofmt",      po::value<std::string>(&(ret.info_format)),
+             "Format to print stream/file information. Possible values are 'pretty' (default), 'yaml'")
         ;
     //These arguments are positional and thuis should not be show to the user
     po::options_description hidden("Hidden");
@@ -513,42 +676,61 @@ std::string to_yaml(FileSummary const &m)
 }
 
 
+void print_summary(FileSummary const &summary, Args& args)
+{
+    if(args.info_format == "pretty")
+    {
+        pretty_print(summary);
+    }
+    else if(args.info_format == "yaml")
+    {
+        to_yaml(summary);
+    }
+}
+
+
 int do_main(Args& args){
     // Open log file
     std::clog << "Reading logfile '" << args.filepath << "'..." << std::flush;
     pocolog_cpp::LogFile logfile(args.filepath);
     std::clog << " OK" << std::endl;
 
-    if(args.mode == "info")
+    // Fall back to info mode when no stream was given for extraction
+    if(args.stream_name.empty()){
+        std::clog << "\nNo Stream name was specified!" <<std::endl;
+        args.mode = "info";
+    }
+
+    if( args.mode == "info" )
     {
         FileSummary summary = extract_summary(logfile, args.stream_name);
-        std::cout << to_yaml(summary) <<std::endl;
-        exit(EXIT_SUCCESS);
+        print_summary(summary, args);
+
+        return(EXIT_SUCCESS);
+    }
+    else{
+        // If mode is not 'info' it must be 'extract'
+        args.mode = "extract";
     }
 
-    if(args.stream_name.empty())
-    {
-        std::clog << "\nNo Stream name was specified!" <<std::endl;
-        FileSummary summary = extract_summary(logfile);
-        pretty_print(summary);
-        exit(EXIT_FAILURE);
-    }
 
-    // Initialize stream
-    try{
-        Stream *stream_base = &(logfile.getStream(args.stream_name));
-        InputDataStream *stream = dynamic_cast<InputDataStream *>(stream_base);
-        if(!stream){
-            throw std::runtime_error("Could not cast stream");
+    if(args.mode == "extract"){
+        // Initialize stream
+        try{
+            Stream *stream_base = &(logfile.getStream(args.stream_name));
+            InputDataStream *stream = dynamic_cast<InputDataStream *>(stream_base);
+            if(!stream){
+                throw std::runtime_error("Could not cast stream");
+            }
+
+            // Extract
+            extract(stream, args);
         }
-
-        // Extract
-        extract(stream, args);
-    }
-    catch(std::runtime_error& err)
-    {
-        std::cerr << "Error: " << err.what();
-        exit(EXIT_FAILURE);
+        catch(std::runtime_error& err)
+        {
+            std::cerr << "Error: " << err.what();
+            exit(EXIT_FAILURE);
+        }
     }
 
     return EXIT_SUCCESS;
