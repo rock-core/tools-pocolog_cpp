@@ -700,8 +700,10 @@ int do_main(Args& args){
 
     // Fall back to info mode when no stream was given for extraction
     if(args.stream_name.empty()){
-        std::clog << "\nNo Stream name was specified!" <<std::endl;
-        args.mode = "info";
+        if (args.mode != "info"){
+            std::clog << "\nNo Stream name was specified!" <<std::endl;
+            args.mode = "info";
+        }
     }
 
     if( args.mode == "info" )
