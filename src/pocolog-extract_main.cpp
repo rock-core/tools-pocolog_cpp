@@ -684,7 +684,10 @@ void print_summary(FileSummary const &summary, Args& args)
     }
     else if(args.info_format == "yaml")
     {
-        to_yaml(summary);
+        std::cout << to_yaml(summary) << std::endl;
+    }
+    else{
+        throw(std::runtime_error("Unexpected value '"+args.info_format+"' was given for argument info format"));
     }
 }
 
