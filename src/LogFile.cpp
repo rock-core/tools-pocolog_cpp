@@ -75,7 +75,6 @@ LogFile::~LogFile()
 
     for (size_t i = 0; i < indexFiles.size(); i++) {
         delete indexFiles[i];
-        streams[i] = NULL;
     }
     indexFiles.clear();
 }
