@@ -143,7 +143,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 StreamDescription newStream;
                 if(!logFile.loadStreamDescription(newStream, descPos))
                 {
-                    break;
+                    throw std::runtime_error("IndexFile: Error loading stream description");
                 }
                 
                 foundStreams.push_back(newStream);
