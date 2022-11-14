@@ -110,6 +110,28 @@ bool is_named_vector(const Typelib::Value& v)
 }
 
 
+bool is_named_vector(const Typelib::Type& t)
+{
+    // make sure we look at a struct
+    if (t.getCategory() != Typelib::Type::Compound) {
+        return false;
+    }
+    
+    // ok, then try to cast it
+    auto cmp = dynamic_cast<const Typelib::Compound*>(&t);
+    
+    if (!cmp)
+        return false;
+    
+    // check if we have the typical named vector fields
+    if (cmp->getField("names") && cmp->getField("elements")) {
+        return true;
+    } 
+    
+    return false;
+}
+
+
 bool is_named_vector(InputDataStream *stream, char* buffer)
 {
     Typelib::Value v( buffer, *stream->getType() );

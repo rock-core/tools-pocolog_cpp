@@ -16,6 +16,7 @@ std::vector<Typelib::Value> sort_named_vector_values(Typelib::Value& names_v,
 
 std::vector<std::string> extract_names(InputDataStream *stream);
 
+bool is_named_vector(const Typelib::Type& t);
 bool is_named_vector(const Typelib::Value& v);
 
 bool is_named_vector(InputDataStream *stream, char *buffer);
