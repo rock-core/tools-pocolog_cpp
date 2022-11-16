@@ -8,6 +8,7 @@
 namespace pocolog_cpp
 {
 
+
 LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 {
 
@@ -16,8 +17,11 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     readBuffer.resize(8096 * 1024);
 //     logFile.rdbuf()->pubsetbuf(readBuffer.data(), readBuffer.size());
     
-    if (! logFile.good())
+    if (!logFile.good()){
+        std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
+        perror("stat");
         throw std::runtime_error("Error, empty File");
+    }
 
     // Load the prologue
     Prologue prologue;
@@ -75,7 +79,6 @@ LogFile::~LogFile()
 
     for (size_t i = 0; i < indexFiles.size(); i++) {
         delete indexFiles[i];
-        streams[i] = NULL;
     }
     indexFiles.clear();
 }
