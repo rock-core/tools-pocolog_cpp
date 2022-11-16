@@ -12,6 +12,7 @@ rock_library(pocolog_cpp
         IndexFile.cpp 
         FileStream.cpp 
         MultiFileIndex.cpp
+        named_vector_helpers.cpp
     HEADERS 
         FileStream.hpp 
         Format.hpp 
@@ -23,6 +24,7 @@ rock_library(pocolog_cpp
         Stream.hpp
         StreamDescription.hpp 
         Write.hpp 
+        named_vector_helpers.hpp
     DEPS_PKGCONFIG 
         base-types 
         base-logging
