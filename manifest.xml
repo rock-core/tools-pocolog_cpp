@@ -16,4 +16,5 @@
   <depend package="base/types" />
   <depend package="base/logging" />
   <depend package="typelib" />
+  <depend package="yaml-cpp" />
 </package>
