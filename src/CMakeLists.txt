@@ -54,8 +54,8 @@ rock_executable(example_old NOINSTALL
 )
 
 rock_executable(pocolog-extract
-    SOURCES pocolog-extract_main.cpp named_vector_helpers.cpp
-    HEADERS named_vector_helpers.hpp
+    SOURCES pocolog-extract_main.cpp named_vector_helpers.cpp csv_output.cpp
+    HEADERS named_vector_helpers.hpp csv_output.hpp
     DEPS_PKGCONFIG yaml-cpp
     DEPS pocolog_cpp
     DEPS_PLAIN

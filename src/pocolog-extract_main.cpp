@@ -4,20 +4,24 @@
 #include "InputDataStream.hpp"
 #include <iostream>
 #include <boost/foreach.hpp>
-#include <typelib/csvoutput.hh>
 #include <sstream>
 #include <boost/program_options.hpp>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include "csv_output.hpp"
 
 #include "named_vector_helpers.hpp"
+#include <boost/algorithm/string/join.hpp>
 
 
 #define FMT_BOLD "\033[1m"
 #define FMT_UNDERLINE "\033[4m"
 #define FMT_END "\033[0m"
+
+using boost::join;
+
 
 
 using namespace pocolog_cpp;
@@ -109,9 +113,40 @@ bool guess_field_with_timestamps(InputDataStream *stream, std::string& field_nam
 }
 
 
-void write_header(InputDataStream *stream,
+void write_type_info(InputDataStream *stream,
+                     Args& args)
+{
+    // Initialize buffer
+    std::vector<uint8_t> buffer;
+    buffer.resize(stream->getTypeMemorySize());
+
+    Typelib::Value v(buffer.data(), *stream->getType());
+    Typelib::Type::Category category = v.getType().getCategory();
+
+    // Retrieve first sample so that there is data in dynamically sized strauctures (needed for named vector treatment)
+    stream->getTyplibValue(buffer.data(), stream->getTypeMemorySize(), 0);
+
+    const Typelib::Type& type = v.getType();
+
+
+    /*CSVColumnTypeVisitor visitor;
+    std::cout << type.getName() <<std::endl;
+    std::list<std::string> headers = visitor.apply(type);
+    std::cout << "Toll" <<std::endl;*/
+}
+
+
+struct CSVDataModel{
+    std::string header;
+    std::string types;
+};
+
+CSVDataModel get_csv_data_model(InputDataStream *stream,
                   Args& args)
 {
+    std::stringstream header_ss;
+    std::stringstream types_ss;
+
     // Initialize buffer
     std::vector<uint8_t> buffer;
     buffer.resize(stream->getTypeMemorySize());
@@ -131,10 +166,12 @@ void write_header(InputDataStream *stream,
 
     // Write index and log time column headers
     if(args.add_idx){
-        std::cout << "log_idx" << args.sep;
+        header_ss << "log_idx" << args.sep;
+        types_ss << "log_idx"<< args.sep << "/int64_t" <<std::endl;
     }
     if(args.add_time){
-        std::cout << "log_time" << args.sep;
+        header_ss << "log_time" << args.sep;
+        types_ss << "log_time" << args.sep << "/int64_t" <<std::endl;
     }
 
     //
@@ -142,7 +179,8 @@ void write_header(InputDataStream *stream,
     //
     // For non-compound types we use the standard csv function
     if(category != Typelib::Type::Category::Compound){
-        std::cout << Typelib::csv_header(*stream->getType(), stream->getName(), args.sep, args.sdelim) << std::endl;
+        header_ss << pocolog_cpp::csv_header(*stream->getType(), stream->getName(), args.sep, args.sdelim, false) << std::endl;
+        types_ss << pocolog_cpp::csv_header(*stream->getType(), stream->getName(), args.sep, args.sdelim, true ) << std::endl;
     }
     // For compound types we call the csv header extraction for each field individually so that we can account for
     //    a. extracting only a subset of all fields (field names where explicitly given)
@@ -163,28 +201,30 @@ void write_header(InputDataStream *stream,
                 for( size_t name_idx=0; name_idx<n_elems; name_idx++ )
                 {
                     Typelib::Value fcv = fc->getElement(fv.getData(), name_idx);
-                    std::cout << Typelib::csv_header(fcv.getType(),
-                                                     named_vector_order[name_idx],
-                                                     args.sep,
-                                                     args.sdelim);
+                    header_ss << csv_header(fcv.getType(), named_vector_order[name_idx], args.sep, args.sdelim);
+                    types_ss << csv_header(fcv.getType(), named_vector_order[name_idx], args.sep, args.sdelim, true);
                     if(i_elems < n_elems-1){
-                        std::cout << args.sep;
+                        header_ss << args.sep;
                     }
                     i_elems++;
                 }
             }
             else{
-                std::cout << Typelib::csv_header(fv.getType(), field_name, args.sep, args.sdelim);
+                header_ss << csv_header(fv.getType(), field_name, args.sep, args.sdelim);
+                types_ss << csv_header(fv.getType(), field_name, args.sep, args.sdelim, true);
             }
 
             if(i_fields < args.fields.size()-1){
-                std::cout << args.sep;
+                header_ss << args.sep;
             }
             i_fields++;
         }
     }
 
-    std::cout << std::endl;
+     CSVDataModel ret;
+     ret.header = header_ss.str();
+     ret.types = types_ss.str();
+     return ret;
 }
 
 
@@ -217,14 +257,6 @@ void extract(InputDataStream *stream,
     std::vector<uint8_t> buffer;
     buffer.resize(stream->getTypeMemorySize());
 
-
-    std::clog << "Extracting "<<args.stream_name << " from " << args.filepath << "\n"
-              << "    start index: " << idx
-              << " (" << stream->getFileIndex().getSampleTime(idx).toString(base::Time::Resolution::Seconds)
-              <<")\n    stop index: " << stop_idx
-              << " (" << stream->getFileIndex().getSampleTime(stop_idx-1).toString(base::Time::Resolution::Seconds)
-              << ")" << std::endl;
-
     Typelib::Value v(buffer.data(), *stream->getType());
     Typelib::Type::Category category = v.getType().getCategory();
 
@@ -240,7 +272,6 @@ void extract(InputDataStream *stream,
         }
     }
 
-
     // Set field names if empty
     if(category == Typelib::Type::Category::Compound && args.fields.empty()){
         std::list<Typelib::Field> fields = dynamic_cast<const Typelib::Compound*>(&v.getType())->getFields();
@@ -254,12 +285,30 @@ void extract(InputDataStream *stream,
         }
     }
 
+    // Should we write column types or extract data?
+    if( args.mode == "column_types"){
+        CSVDataModel model = get_csv_data_model(stream, args);
+        std::cout << "column_name" << args.sep << "data_type" << std::endl;
+        std::cout << model.types << std::endl;
+        return;
+    }
+
     // Write CSV header
     if(args.write_header){
-        write_header(stream, args);
+        CSVDataModel m = get_csv_data_model(stream, args);
+        std::cout << m.header << std::endl;
     }
 
     // Iterate samples
+
+    std::clog << "Extracting "<<args.stream_name << " from " << args.filepath << "\n"
+              << "    start index: " << idx
+              << " (" << stream->getFileIndex().getSampleTime(idx).toString(base::Time::Resolution::Seconds)
+              <<")\n    stop index: " << stop_idx
+              << " (" << stream->getFileIndex().getSampleTime(stop_idx-1).toString(base::Time::Resolution::Seconds)
+              << ")" << std::endl;
+
+
     size_t start_idx = idx;
     while(idx < stop_idx)
     {
@@ -277,7 +326,7 @@ void extract(InputDataStream *stream,
 
         // For non-compound types we use the standard csv function
         if(category != Typelib::Type::Category::Compound){
-            std::cout << Typelib::csv(*stream->getType(), buffer.data(), args.sep, false, args.sdelim) << "\n";
+            std::cout << csv(*stream->getType(), buffer.data(), args.sep, false, args.sdelim) << "\n";
         }
         // For compound types we call the csv extraction for each field individually so that we can account for
         //    a. extracting only a subset of all fields (field names where explicitly given)
@@ -300,7 +349,7 @@ void extract(InputDataStream *stream,
                         std::vector<Typelib::Value> reordered = sort_named_vector_values(names_v, fv, named_vector_sorting_map);
                         size_t i_elems=0;
                         for(Typelib::Value& elv : reordered){
-                            std::cout << Typelib::csv(elv.getType(), elv.getData(), args.sep, false, args.sdelim);
+                            std::cout << csv(elv.getType(), elv.getData(), args.sep, false, args.sdelim);
                             if(i_elems < reordered.size()-1){
                                 std::cout << args.sep;
                             }
@@ -308,7 +357,7 @@ void extract(InputDataStream *stream,
                         }
                     }
                     else{
-                        std::cout << Typelib::csv(fv.getType(), fv.getData(), args.sep, false, args.sdelim);
+                        std::cout << csv(fv.getType(), fv.getData(), args.sep, false, args.sdelim);
                     }
                     if(i_fields < args.fields.size()-1){
                          std::cout << args.sep;
@@ -410,6 +459,8 @@ Args parse_args(int argc, char** argv)
          "Print information about streams")
         ("infofmt",      po::value<std::string>(&(ret.info_format)),
              "Format to print stream/file information. Possible values are 'pretty' (default), 'yaml'")
+        ("column_types",
+         "Print information column types of CSV output")
         ;
     //These arguments are positional and thuis should not be show to the user
     po::options_description hidden("Hidden");
@@ -478,6 +529,11 @@ Args parse_args(int argc, char** argv)
     if (vm.count("info"))
     {
         ret.mode = "info";
+    }
+
+    if (vm.count("column_types"))
+    {
+        ret.mode = "column_types";
     }
 
     if (vm.count("no_header"))
@@ -714,12 +770,8 @@ int do_main(Args& args){
         return(EXIT_SUCCESS);
     }
     else{
-        // If mode is not 'info' it must be 'extract'
-        args.mode = "extract";
-    }
+        // If mode is not 'info' it must be 'extract' (column_types is handled in extract function)
 
-
-    if(args.mode == "extract"){
         // Initialize stream
         try{
             Stream *stream_base = &(logfile.getStream(args.stream_name));
