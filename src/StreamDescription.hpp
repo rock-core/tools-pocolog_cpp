@@ -8,6 +8,7 @@
 
 #include "Format.hpp"
 #include "FileStream.hpp"
+#include <typelib/typemodel.hh>
 
 namespace pocolog_cpp
 {
@@ -23,8 +24,10 @@ class StreamDescription
     std::string m_metadata;
     std::map<std::string, std::string> m_metadataMap;
 
-    
+    mutable std::shared_ptr<Typelib::Registry> m_typelibRegistry;
+
     std::string readString(const std::vector< uint8_t > data, size_t& pos);
+
 public:
     StreamDescription(const std::string& fileName, std::vector<uint8_t> data, size_t stream_idx);
     StreamDescription();
@@ -69,8 +72,8 @@ public:
     {
         return m_metadataMap;
     }
-    
-    
+
+    Typelib::Type const& getTypelibType() const;
 };
 }
 #endif // STREAMDESCRIPTION_H

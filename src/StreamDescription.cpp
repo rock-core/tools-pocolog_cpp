@@ -5,7 +5,8 @@
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
-
+#include <typelib/pluginmanager.hh>
+#include <typelib/registry.hh>
 
 namespace pocolog_cpp
 {
@@ -92,5 +93,16 @@ StreamDescription::~StreamDescription()
 
 }
 
+Typelib::Type const& StreamDescription::getTypelibType() const {
+    if (!m_typelibRegistry) {
+        std::stringstream stream(getTypeDescription());
+        utilmm::config_set config;
+        m_typelibRegistry.reset(
+            Typelib::PluginManager::load("tlb", stream, config)
+        );
+    }
+
+    return *m_typelibRegistry->get(getTypeName());
+}
 
 }
