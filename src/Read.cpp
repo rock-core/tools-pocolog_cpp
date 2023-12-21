@@ -196,7 +196,7 @@ namespace pocolog_cpp
         buffer_reader reader(buffer, pos_, size_);
         uint8_t stream_type = reader.read<uint8_t>();
 
-        auto_ptr<Stream> new_stream;
+        unique_ptr<Stream> new_stream;
         if (stream_type == ControlStreamType)
         {
             new_stream.reset(new ControlStream(*m_input, stream_idx));
