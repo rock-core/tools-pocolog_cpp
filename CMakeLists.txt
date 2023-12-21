@@ -3,6 +3,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(pocolog_cpp VERSION 0.1)
 find_package(Rock)
+set(CMAKE_CXX_STANDARD 17)
 rock_init()
 rock_standard_layout()
 
