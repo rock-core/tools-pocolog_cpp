@@ -1,35 +1,50 @@
+option(HANDLE_OROGEN_OPAQUES "whether orogen-generated opaques should be automatically handled. Adds a dependency on RTT" OFF)
+if (HANDLE_OROGEN_OPAQUES)
+    if (NOT OROCOS_TARGET)
+        set(OROCOS_TARGET gnulinux)
+    endif()
+
+    list(APPEND OPTIONAL_SOURCES SequentialReadDispatcher.cpp)
+    list(APPEND OPTIONAL_HEADERS SequentialReadDispatcher.hpp)
+    list(APPEND OPTIONAL_DEPS_PKGCONFIG
+                orocos-rtt-${OROCOS_TARGET} rtt_typelib-${OROCOS_TARGET})
+endif()
+
 find_package( Boost COMPONENTS system filesystem program_options)
-rock_library(pocolog_cpp 
-    SOURCES 
-        Format.cpp 
-        Read.cpp 
-        Write.cpp 
-        Index.cpp 
+rock_library(pocolog_cpp
+    SOURCES
+        Format.cpp
+        Read.cpp
+        Write.cpp
+        Index.cpp
         InputDataStream.cpp
-        StreamDescription.cpp 
-        Stream.cpp 
-        LogFile.cpp 
-        IndexFile.cpp 
-        FileStream.cpp 
+        StreamDescription.cpp
+        Stream.cpp
+        LogFile.cpp
+        IndexFile.cpp
+        FileStream.cpp
         MultiFileIndex.cpp
         named_vector_helpers.cpp
-    HEADERS 
-        FileStream.hpp 
-        Format.hpp 
-        Index.hpp 
+        ${OPTIONAL_SOURCES}
+    HEADERS
+        FileStream.hpp
+        Format.hpp
+        Index.hpp
         InputDataStream.hpp
-        LogFile.hpp 
+        LogFile.hpp
         MultiFileIndex.hpp
-        Read.hpp 
+        Read.hpp
         Stream.hpp
-        StreamDescription.hpp 
-        Write.hpp 
+        StreamDescription.hpp
+        Write.hpp
         named_vector_helpers.hpp
-    DEPS_PKGCONFIG 
-        base-types 
+        ${OPTIONAL_HEADERS}
+    DEPS_PKGCONFIG
+        base-types
         base-logging
         typelib
-    DEPS_PLAIN 
+        ${OPTIONAL_DEPS_PKGCONFIG}
+    DEPS_PLAIN
         Boost_SYSTEM Boost_FILESYSTEM)
 
 rock_executable(indexer NOINSTALL
