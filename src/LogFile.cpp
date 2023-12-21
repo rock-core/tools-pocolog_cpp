@@ -4,7 +4,7 @@
 #include "IndexFile.hpp"
 #include <base-logging/Logging.hpp>
 #include <iostream>
-         
+
 namespace pocolog_cpp
 {
 
@@ -13,10 +13,10 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 {
 
     logFile.open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
-    
+
     readBuffer.resize(8096 * 1024);
 //     logFile.rdbuf()->pubsetbuf(readBuffer.data(), readBuffer.size());
-    
+
     if (!logFile.good()){
         std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
         perror("stat");
@@ -34,7 +34,7 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     gotBlockHeader = false;
 
     LOG_DEBUG_S << "Found " << descriptions.size() << " stream in logfile " << getFileName();
-    
+
     //load Index
     IndexFile *indexFile = new IndexFile(*this);
     indexFiles.push_back(indexFile);
@@ -43,9 +43,9 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     //inside the logfile
     nextBlockHeaderPos = firstBlockHeaderPos;
     gotBlockHeader = false;
-    
+
     descriptions = indexFile->getStreamDescriptions();
-    
+
     for(std::vector<StreamDescription>::const_iterator it = descriptions.begin(); it != descriptions.end();it++)
     {
         switch(it->getType())
@@ -60,7 +60,7 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
                     {
                         std::cerr << "WARNING, skipping corrupted stream " << it->getName() << " of type " << it->getTypeName();
                     }
-                
+
                 break;
             default:
                 LOG_INFO_S << "Ignoring stream " << it->getName();
@@ -107,7 +107,7 @@ bool LogFile::loadStreamDescription(StreamDescription &result, std::streampos de
         LOG_ERROR_S << "Failed to read block header ";
         return false;
     }
-    
+
     std::vector<uint8_t> descriptionData;
     if(!readCurBlock(descriptionData))
     {
@@ -120,7 +120,7 @@ bool LogFile::loadStreamDescription(StreamDescription &result, std::streampos de
     }
 
     result = StreamDescription(getFileName(), descriptionData, curBlockHeader.stream_idx);
-    
+
     return true;
 }
 
@@ -140,7 +140,7 @@ std::string LogFile::getFileBaseName() const
     std::string baseName(filename);
     //easy implemenatiton, filename should end as '.log'
     baseName.resize(filename.size() - 4);
-    
+
     return baseName;
 }
 
@@ -152,30 +152,30 @@ bool LogFile::readNextBlockHeader(BlockHeader& curBlockHeade)
 }
 
 bool LogFile::readNextBlockHeader()
-{   
+{
     logFile.seekg(nextBlockHeaderPos);
     if(logFile.eof())
     {
         return false;
     }
-    
+
     curBlockHeaderPos = nextBlockHeaderPos;
-    
+
     logFile.read((char *) &curBlockHeader, sizeof(BlockHeader));
     if(!logFile.good())
     {
         LOG_ERROR_S << "Reading Block Header failedSample Pos is " << curBlockHeaderPos;
-// 
+//
         return false;
     }
 
     nextBlockHeaderPos += sizeof(BlockHeader) + curBlockHeader.data_size;
     curSampleHeaderPos = curBlockHeaderPos;
     curSampleHeaderPos += sizeof(BlockHeader);
-    
+
     gotBlockHeader = true;
     gotSampleHeader = false;
-    
+
     return true;
 }
 
@@ -198,23 +198,23 @@ bool LogFile::readSampleHeader()
     {
         throw std::runtime_error("Internal Error: Called readSampleHeader without reading Block header first");
     }
-    
+
     logFile.seekg(curSampleHeaderPos);
-    
+
     if(logFile.eof() || logFile.fail())
     {
         return false;
     }
-    
+
     logFile.read((char *) &curSampleHeader, sizeof(SampleHeaderData));
     if(!logFile.good())
     {
         return false;
     }
-    
+
     gotSampleHeader = true;
 
-    return true;  
+    return true;
 }
 
 bool LogFile::checkSampleComplete()
@@ -230,7 +230,7 @@ std::streampos LogFile::getSamplePos() const
     }
     std::streampos ret(curSampleHeaderPos);
     ret += sizeof(SampleHeaderData);
-    return ret; 
+    return ret;
 }
 
 std::streampos LogFile::getBlockDataPos() const
@@ -239,7 +239,7 @@ std::streampos LogFile::getBlockDataPos() const
     {
         throw std::runtime_error("Internal Error: Called getBlockDataPos without reading Block header first");
     }
-    return curSampleHeaderPos; 
+    return curSampleHeaderPos;
 }
 
 std::streampos LogFile::getBlockHeaderPos() const
@@ -248,7 +248,7 @@ std::streampos LogFile::getBlockHeaderPos() const
     {
         throw std::runtime_error("Internal Error: Called getBlockHeaderPos without reading Block header first");
     }
-    return curBlockHeaderPos; 
+    return curBlockHeaderPos;
 }
 
 size_t LogFile::getSampleStreamIdx() const

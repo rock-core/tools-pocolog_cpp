@@ -8,9 +8,9 @@
 
 namespace pocolog_cpp
 {
-    
+
 class IndexFile;
-    
+
 class LogFile
 {
     std::vector<char > readBuffer;
@@ -21,7 +21,7 @@ class LogFile
     std::streampos curSampleHeaderPos;
     FileStream logFile;
     std::vector<IndexFile *> indexFiles;
-    
+
     std::vector<Stream *> streams;
     std::vector<StreamDescription> descriptions;
 
@@ -29,29 +29,28 @@ class LogFile
     struct BlockHeader curBlockHeader;
     bool gotSampleHeader;
     struct SampleHeaderData curSampleHeader;
-    
+
 public:
     LogFile(const std::string &fileName, bool verbose = true);
     ~LogFile();
-    
+
     std::string getFileName() const;
     std::string getFileBaseName() const;
-    
+
     const std::vector<Stream *> &getStreams() const;
-    const std::vector<StreamDescription> &getStreamDescriptions() const; 
+    const std::vector<StreamDescription> &getStreamDescriptions() const;
 
     bool loadStreamDescription(StreamDescription &result, std::streampos descPos);
-    
+
     const BlockHeader &getCurBlockHeader() const;
-    
+
     bool readNextBlockHeader(struct BlockHeader &curBlockHeade);
     bool readNextBlockHeader();
     bool readSampleHeader();
     bool checkSampleComplete();
-    
+
     bool readCurBlock(std::vector<uint8_t> &blockData);
-    
-    
+
     std::streampos getSamplePos() const;
     std::streampos getBlockDataPos() const;
     std::streampos getBlockHeaderPos() const;
@@ -59,9 +58,9 @@ public:
     size_t getSampleStreamIdx() const;
     
     bool eof() const;
-    
+
     Stream &getStream(const std::string streamName) const;
-    
+
 };
 }
 #endif // LOGFILE_H

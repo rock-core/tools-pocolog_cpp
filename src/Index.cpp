@@ -9,13 +9,13 @@
 
 namespace pocolog_cpp
 {
-    
+
 Index::Index(std::string indexFileName, size_t streamIdx):  firstAdd(true), curSampleNr(-1), indexFile(indexFileName.c_str(), std::ifstream::binary | std::ifstream::in)
 {
     indexFile.seekg(streamIdx * sizeof(IndexPrologue) + sizeof(IndexFile::IndexFileHeader));
-    
+
     indexFile.read((char *) & prologue, sizeof(IndexPrologue));
-    
+
     firstSampleTime = base::Time::fromMicroseconds(prologue.firstSampleTime);
     lastSampleTime = base::Time::fromMicroseconds(prologue.lastSampleTime);
 }
@@ -33,8 +33,7 @@ Index::Index(const pocolog_cpp::StreamDescription& desc, off_t posOfStreamDesc) 
 
 bool Index::matches(const StreamDescription& odesc) const
 {
-    return prologue.streamIdx == odesc.getIndex();
-//    return (desc.getName() == odesc.getName() && desc.getTypeName() == odesc.getTypeName());
+    return static_cast<size_t>(prologue.streamIdx) == odesc.getIndex();
 }
 
 
@@ -45,12 +44,12 @@ void Index::addSample(off_t filePosition, const base::Time& sampleTime)
         prologue.firstSampleTime = sampleTime.microseconds;
         firstAdd = false;
     }
-    
+
     IndexInfo info;
     info.samplePosInLogFile = filePosition;
     info.sampleTime = sampleTime.microseconds;
     buildBuffer.push_back(info);
-    
+
     prologue.lastSampleTime = sampleTime.microseconds;
     prologue.numSamples++;
 }
@@ -65,26 +64,26 @@ off_t Index::writeIndexToFile(std::fstream& indexFile, off_t prologPos, off_t in
     indexFile.seekp(prologPos, std::fstream::beg);
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
-    
+
     prologue.dataPos = indexDataPos;
-    LOG_DEBUG_S << "Found " << prologue.numSamples << " in stream " << name; 
-    
+    LOG_DEBUG_S << "Found " << prologue.numSamples << " in stream " << name;
+
     indexFile.write((char *) &prologue, sizeof(IndexPrologue));
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
-    
+
     indexFile.seekp(indexDataPos, std::fstream::beg);
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
 
     LOG_DEBUG_S << "Wrinting " << buildBuffer.size() * sizeof(IndexInfo) / 1024 << " KBytes to index File ";
-    
+
     indexFile.write((char *) buildBuffer.data(), buildBuffer.size() * sizeof(IndexInfo));
     if(!indexFile.good())
         throw std::runtime_error("Error writing index file");
-    
-    LOG_DEBUG_S << "Done new pos " << indexFile.tellp(); 
-    
+
+    LOG_DEBUG_S << "Done new pos " << indexFile.tellp();
+
     return indexFile.tellp();
 }
 
@@ -92,7 +91,7 @@ void Index::loadIndex(size_t sampleNr)
 {
     if(sampleNr >= prologue.numSamples)
         throw std::runtime_error("Index::loadIndex : Error sample out of index requested");
-        
+
     if(sampleNr != curSampleNr)
     {
         std::streampos pos(prologue.dataPos + sampleNr * sizeof(IndexInfo));
@@ -103,7 +102,7 @@ void Index::loadIndex(size_t sampleNr)
         indexFile.read((char *) &curIndexInfo, sizeof(IndexInfo));
         if(!indexFile.good())
             throw std::runtime_error("Internal Error, index file is corrupted");
-        
+
         curSampleNr = sampleNr;
     }
 }
@@ -113,9 +112,9 @@ std::streampos Index::getSamplePos(size_t sampleNr)
 {
 
     loadIndex(sampleNr);
-    
+
     return std::streampos(curIndexInfo.samplePosInLogFile);
-    
+
 }
 
 base::Time Index::getSampleTime(size_t sampleNr)

@@ -16,18 +16,18 @@ int main(int argc, char **argv)
         exit(0);
     }
     std::string file(argv[1]);
-    
+
     try
     {
         pocolog_cpp::LogFile logfile(file);
-        
-        
-        
+
+
+
         Stream *stream = &(logfile.getStream("/simple_controller.command"));
         InputDataStream *dataStream = dynamic_cast<InputDataStream *>(stream);
-        
+
         std::cout << "Stream size is " << dataStream->getSize() << std::endl;
-        
+
         for(size_t i = 0; i < dataStream->getSize(); i++)
         {
             base::samples::Joints joints;
@@ -36,21 +36,21 @@ int main(int argc, char **argv)
                 std::cout << "Error could not load sample  " << i << std::endl;
                 return 0;
             }
-            
+
 //             std::cout << "Found Names :" << std::endl;
-// 
+//
 //             BOOST_FOREACH( std::string name, joints.names )
 //             {
 //                 std::cout << name<< std::endl;;
 //             }
 
         }
-        
+
     }
-    catch (std::runtime_error e)
+    catch (std::runtime_error& e)
     {
         std::cerr << e.what() << std::endl;
     }
-    
+
     return 0;
 }

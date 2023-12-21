@@ -2,10 +2,12 @@
 #define STREAMDESCRIPTION_H
 
 #include <string>
-#include "Format.hpp"
-#include "FileStream.hpp"
 #include <vector>
 #include <map>
+#include <memory>
+
+#include "Format.hpp"
+#include "FileStream.hpp"
 
 namespace pocolog_cpp
 {
@@ -27,10 +29,10 @@ public:
     StreamDescription(const std::string& fileName, std::vector<uint8_t> data, size_t stream_idx);
     StreamDescription();
     ~StreamDescription();
-    
+
     size_t getIndex() const
-    { 
-        return m_index; 
+    {
+        return m_index;
     }
 
     StreamType getType() const
@@ -57,7 +59,7 @@ public:
     {
         return m_metadata;
     }
-    
+
     const std::string &getFileName() const
     {
         return m_fileName;
