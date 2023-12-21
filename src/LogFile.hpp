@@ -5,6 +5,7 @@
 #include "Stream.hpp"
 #include "Format.hpp"
 #include "FileStream.hpp"
+#include "OwnedValue.hpp"
 
 namespace pocolog_cpp
 {
@@ -56,7 +57,11 @@ public:
     std::streampos getBlockHeaderPos() const;
     const base::Time getSampleTime() const;
     size_t getSampleStreamIdx() const;
-    
+    bool getSampleData(std::vector<uint8_t>& buffer);
+
+    OwnedValue getSample();
+    OwnedValue getSample(std::vector<uint8_t>& buffer);
+
     bool eof() const;
 
     Stream &getStream(const std::string streamName) const;

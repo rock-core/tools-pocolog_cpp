@@ -269,6 +269,33 @@ const base::Time LogFile::getSampleTime() const
     return base::Time::fromSeconds(curSampleHeader.realtime_tv_sec, curSampleHeader.realtime_tv_usec);
 }
 
+bool LogFile::getSampleData(std::vector<uint8_t>& buffer)
+{
+    if(!gotSampleHeader)
+    {
+        throw std::runtime_error("Internal Error: Called getSampleData without reading Sample header first");
+    }
+
+    logFile.read(reinterpret_cast<char*>(buffer.data()), curSampleHeader.data_size);
+    return logFile.good();
+}
+
+OwnedValue LogFile::getSample() {
+    std::vector<uint8_t> buffer;
+    return getSample(buffer);
+}
+
+OwnedValue LogFile::getSample(std::vector<uint8_t>& buffer) {
+    if (!getSampleData(buffer)) {
+        throw std::logic_error("reading sample data failed");
+    }
+
+    Typelib::Type const& type = getStreamDescriptions()[getSampleStreamIdx()].getTypelibType();
+    OwnedValue sample(type);
+    sample.load(buffer);
+    return sample;
+}
+
 bool LogFile::eof() const
 {
     return logFile.eof();
