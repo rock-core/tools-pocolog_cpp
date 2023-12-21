@@ -25,6 +25,7 @@ rock_library(pocolog_cpp
         FileStream.cpp
         MultiFileIndex.cpp
         named_vector_helpers.cpp
+        OwnedValue.cpp
         ${OPTIONAL_SOURCES}
     HEADERS
         FileStream.hpp
@@ -38,6 +39,7 @@ rock_library(pocolog_cpp
         StreamDescription.hpp
         Write.hpp
         named_vector_helpers.hpp
+        OwnedValue.hpp
         ${OPTIONAL_HEADERS}
     DEPS_PKGCONFIG
         base-types
