@@ -9,9 +9,11 @@
 #include <boost/lexical_cast.hpp>
 #include <stdexcept>
 
+using namespace std;
+
 namespace pocolog_cpp
 {
-    
+
 IndexFile::IndexFileHeader::IndexFileHeader() : numStreams(0)
 {
     memcpy(magic, getMagic().c_str(), sizeof(magic));
@@ -22,12 +24,11 @@ std::string IndexFile::IndexFileHeader::getMagic()
     return std::string("IndexV2");
 }
 
-    
+
 IndexFile::IndexFile(std::string indexFileName, LogFile &logFile, bool verbose)
-{    
+{
     if(!loadIndexFile(indexFileName, logFile))
         throw std::runtime_error("Error, index is corrupted");
-    
 }
 
 IndexFile::IndexFile(LogFile &logFile, bool verbose)
@@ -53,17 +54,20 @@ IndexFile::~IndexFile()
     indices.clear();
 }
 
+void IndexFile::remove() {
+    filesystem::remove(indexFilePath);
+}
 
 bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& logFile)
 {
     LOG_DEBUG_S << "Loading Index File ";
     std::ifstream indexFile(indexFileName.c_str(), std::fstream::in | std::fstream::binary );
-    
+
     if(!indexFile.good())
         return false;
-    
+
     IndexFileHeader header;
-    
+
     indexFile.read((char *) &header, sizeof(IndexFileHeader));
     if(!indexFile.good())
         return false;
@@ -75,33 +79,31 @@ bool IndexFile::loadIndexFile(std::string indexFileName, pocolog_cpp::LogFile& l
         LOG_ERROR_S << "Error, index magic does not match";
         return false;
     }
-    
     indexFile.close();
-    
+
+    indexFilePath = indexFileName;
     for(uint32_t i = 0; i < header.numStreams; i++)
     {
         Index *idx = new Index(indexFileName, i);
         //load streams
         indices.push_back(idx);
-        
 
-        
         StreamDescription newStream;
         if(!logFile.loadStreamDescription(newStream, idx->getDescriptionPos()))
         {
             throw std::runtime_error("IndexFile: Internal error, could not load stream description");
         }
-        
+
         streams.push_back(newStream);
-        
+
         LOG_INFO_S << "Stream " << newStream.getName() << " [" << newStream.getTypeName() << "]" <<std::endl;
-        LOG_INFO_S << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds) 
-                    << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " [" 
+        LOG_INFO_S << "  " << idx->getNumSamples() << " Samples from " << idx->getFirstSampleTime().toString(base::Time::Seconds)
+                    << " to " << idx->getLastSampleTime().toString(base::Time::Seconds) << " ["
                     << (idx->getLastSampleTime() - idx->getFirstSampleTime()).toString(base::Time::Milliseconds , "%H:%M:%S") << "]" <<std::endl;
     }
-    
+
     return true;
-    
+
 }
 
 Index& IndexFile::getIndexForStream(const StreamDescription& desc)
@@ -111,7 +113,7 @@ Index& IndexFile::getIndexForStream(const StreamDescription& desc)
         if((*it)->matches(desc))
             return **it;
     }
-    
+
     throw std::runtime_error("IndexFile does not contain valid index for Stream ");
 }
 
@@ -124,11 +126,11 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
     indexFile.rdbuf()->pubsetbuf(writeBuffer.data(), writeBuffer.size());
 
     indexFile.open(indexFileName.c_str(), std::fstream::out | std::fstream::binary | std::fstream::trunc);
-    
+
     std::vector<Index> foundIndices;
     std::vector<StreamDescription> foundStreams;
-    
-    
+
+
     while(logFile.readNextBlockHeader())
     {
         const BlockHeader &curBlockHeader(logFile.getCurBlockHeader());
@@ -145,9 +147,9 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 {
                     throw std::runtime_error("IndexFile: Error loading stream description");
                 }
-                
+
                 foundStreams.push_back(newStream);
-                
+
                 size_t index = newStream.getIndex();
                 if(index != foundIndices.size() )
                 {
@@ -167,11 +169,11 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                     }
                     throw std::runtime_error("IndexFile: Error building index, log file seems corrupted");
                 }
-                
+
                 size_t idx = logFile.getSampleStreamIdx();
                 if(idx >= foundIndices.size())
                     throw std::runtime_error("Error: Corrupt log file " + logFile.getFileName() + ", got sample for nonexisting stream " + boost::lexical_cast<std::string>(idx) );
-                
+
                 if(logFile.checkSampleComplete())
                 {
                     foundIndices[idx].addSample(logFile.getSamplePos(), logFile.getSampleTime());
@@ -184,39 +186,39 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 break;
             case ControlBlockType:
                 break;
-                
+
         }
-        
+
     }
     LOG_DEBUG_S << "IndexFile: Found " << foundStreams.size() << " datastreams " << std::flush;
 
     IndexFileHeader header;
     header.numStreams = foundStreams.size();
-    
+
     assert(header.magic == header.getMagic());
-    
+
     indexFile.write((char *) &header, sizeof(header));
     if(!indexFile.good())
         throw std::runtime_error("IndexFile: Error writing index header");
-    
+
     off_t curProloguePos = sizeof(IndexFileHeader);
     off_t curDataPos = foundIndices.size() * Index::getPrologueSize() + sizeof(IndexFileHeader);
     for ( auto curIdx : foundIndices )
     {
         LOG_INFO_S << "Writing index for stream " << curIdx.getName() << " , num samples " << curIdx.getNumSamples();
-    
+
         //Write index prologue
         curDataPos = curIdx.writeIndexToFile(indexFile, curProloguePos, curDataPos);
         curProloguePos += Index::getPrologueSize();
-        
+
         if(!indexFile.good())
             throw std::runtime_error("IndexFile: Error writing index File");
-        
+
     }
-    
+
     indexFile.close();
     LOG_DEBUG_S << "done ";
-    
+
     return true;
 }
 

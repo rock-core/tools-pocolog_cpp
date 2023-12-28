@@ -12,4 +12,6 @@
   <depend package="yaml-cpp" />
   <depend_optional package="rtt" />
   <depend_optional package="rtt_typelib" />
+
+  <test_depend package="google-test" />
 </package>

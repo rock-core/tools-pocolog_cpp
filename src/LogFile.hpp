@@ -42,6 +42,9 @@ public:
     /** Move the read pointer at the beginning of the file, ready to read blocks */
     void rewind();
 
+    /** Remove all built indexes from disk */
+    void removeAllIndexes();
+
     std::string getFileName() const;
     std::string getFileBaseName() const;
 
@@ -68,6 +71,9 @@ public:
 
     OwnedValue getSample();
     OwnedValue getSample(std::vector<uint8_t>& buffer);
+
+    using Sample = std::tuple<uint16_t, base::Time, OwnedValue>;
+    std::optional<Sample> readNextSample();
 
     bool eof() const;
 

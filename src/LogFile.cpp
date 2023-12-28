@@ -33,6 +33,12 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     streams = createStreamsFromDescriptions(descriptions, indexFile);
 }
 
+void LogFile::removeAllIndexes() {
+    for (auto i : indexFiles) {
+        i->remove();
+    }
+}
+
 std::vector<Stream*> LogFile::createStreamsFromDescriptions(
     std::vector<StreamDescription> const& descriptions, IndexFile* indexFile
 ) {
@@ -285,6 +291,9 @@ bool LogFile::getSampleData(std::vector<uint8_t>& buffer)
         throw std::runtime_error("Internal Error: Called getSampleData without reading Sample header first");
     }
 
+    if (buffer.size() < curSampleHeader.data_size) {
+        buffer.resize(curSampleHeader.data_size);
+    }
     logFile.read(reinterpret_cast<char*>(buffer.data()), curSampleHeader.data_size);
     return logFile.good();
 }
@@ -305,14 +314,27 @@ OwnedValue LogFile::getSample(std::vector<uint8_t>& buffer) {
     return sample;
 }
 
+optional<LogFile::Sample> LogFile::readNextSample() {
+    while (readNextBlockHeader()) {
+        if (curBlockHeader.type == DataBlockType) {
+            uint16_t stream_idx = curBlockHeader.stream_idx;
+            readSampleHeader();
+            return optional<Sample>(
+                make_tuple(stream_idx, getSampleTime(), getSample())
+            );
+        }
+    }
+    return optional<Sample>();
+}
+
 bool LogFile::eof() const
 {
     return logFile.eof();
 }
 
 
-    
+
 }
 
-    
+
 
