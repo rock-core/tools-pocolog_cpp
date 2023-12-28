@@ -20,6 +20,7 @@ public:
     Typelib::Type const& getType() const;
 
     void load(std::vector<uint8_t> const& marshalled_buffer);
+    Typelib::Value operator*() const;
 
     template<typename T>
     T const& get(bool size_check = true) const {

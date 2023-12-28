@@ -7,7 +7,7 @@ if (HANDLE_OROGEN_OPAQUES)
     list(APPEND OPTIONAL_SOURCES SequentialReadDispatcher.cpp)
     list(APPEND OPTIONAL_HEADERS SequentialReadDispatcher.hpp)
     list(APPEND OPTIONAL_DEPS_PKGCONFIG
-                orocos-rtt-${OROCOS_TARGET} rtt_typelib-${OROCOS_TARGET})
+                orocos-rtt-${OROCOS_TARGET} rtt_typelib-${OROCOS_TARGET} utilmm)
 endif()
 
 find_package( Boost COMPONENTS system filesystem program_options)

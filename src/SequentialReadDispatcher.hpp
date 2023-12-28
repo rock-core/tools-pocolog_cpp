@@ -22,9 +22,14 @@ class SequentialReadDispatcher {
         std::string typeName;
         int streamIndex = -1;
 
+    protected:
+        orogen_transports::TypelibMarshallerBase* typelibMarshaller = nullptr;
+        orogen_transports::TypelibMarshallerBase::Handle* typelibHandle = nullptr;
+
     public:
         DispatchBase(std::string const& stream_name, std::string const& typeName);
         virtual ~DispatchBase();
+        bool matches(StreamDescription const& stream) const;
         void* resolveValue(Typelib::Value const& value);
         virtual void dispatch(Typelib::Value const& value) = 0;
     };
@@ -45,23 +50,36 @@ class SequentialReadDispatcher {
 
         virtual void dispatch(Typelib::Value const& value) override {
             void* resolvedValue = resolveValue(value);
-            std::unique_ptr<T> ptr(reinterpret_cast<T*>(resolvedValue));
-            return callback(*ptr);
+            auto ptr = reinterpret_cast<T*>(resolvedValue);
+            callback(*ptr);
+            if (!typelibMarshaller->isPlainTypelibType()) {
+                delete ptr;
+            }
         }
     };
 
     LogFile* logfile = nullptr;
     std::vector<DispatchBase*> dispatches;
 
+    using PerIndexDispatch = std::vector<std::vector<DispatchBase*>>;
+    PerIndexDispatch buildPerIndexDispatch();
+
 public:
     SequentialReadDispatcher(LogFile& logfile);
     ~SequentialReadDispatcher();
+
+    void importTypesFrom(std::string const& typekitName);
+
+    /** Process the logfile sequentially, passing the each sample to the corresponding
+     * callback
+     */
+    void run();
 
     template<typename T>
     void add(std::string const& streamName,
              Callback<T> callback) {
         auto const& streamInfo = logfile->getStream(streamName);
-        return add(streamName, streamInfo.getTypeName(), callback);
+        return add<T>(streamName, streamInfo.getTypeName(), callback);
     }
 
     template<typename T>
@@ -69,7 +87,7 @@ public:
              std::string const& typeName,
              Callback<T> callback) {
 
-        dispatches.push_back(new Dispatch<T>(streamName));
+        dispatches.push_back(new Dispatch<T>(streamName, typeName, callback));
     }
 };
 

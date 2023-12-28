@@ -10,6 +10,7 @@
   <depend package="base/logging" />
   <depend package="typelib" />
   <depend package="yaml-cpp" />
+  <depend package="utilmm" />
   <depend_optional package="rtt" />
   <depend_optional package="rtt_typelib" />
 

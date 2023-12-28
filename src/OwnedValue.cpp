@@ -31,3 +31,7 @@ void OwnedValue::load(std::vector<uint8_t> const& marshalled_buffer) {
 Typelib::Type const& OwnedValue::getType() const {
     return value.getType();
 }
+
+Typelib::Value OwnedValue::operator*() const {
+    return value;
+}
