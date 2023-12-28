@@ -31,6 +31,10 @@ class LogFile
     struct SampleHeaderData curSampleHeader;
     void readPrologue();
 
+    std::vector<Stream*> createStreamsFromDescriptions(
+        std::vector<StreamDescription> const& descriptions, IndexFile* indexFile
+    );
+
 public:
     LogFile(const std::string &fileName, bool verbose = true);
     ~LogFile();

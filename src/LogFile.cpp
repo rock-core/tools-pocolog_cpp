@@ -5,16 +5,15 @@
 #include <base-logging/Logging.hpp>
 #include <iostream>
 
+using namespace std;
+
 namespace pocolog_cpp
 {
 
 
 LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 {
-
     logFile.open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
-
-
     if (!logFile.good()){
         std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
         perror("stat");
@@ -30,35 +29,42 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     rewind();
 
     descriptions = indexFile->getStreamDescriptions();
+    LOG_DEBUG_S << "Found " << descriptions.size() << " stream in logfile " << getFileName();
+    streams = createStreamsFromDescriptions(descriptions, indexFile);
+}
 
-    for(std::vector<StreamDescription>::const_iterator it = descriptions.begin(); it != descriptions.end();it++)
+std::vector<Stream*> LogFile::createStreamsFromDescriptions(
+    std::vector<StreamDescription> const& descriptions, IndexFile* indexFile
+) {
+    std::vector<Stream*> streams;
+    for (auto const& d: descriptions)
     {
-        switch(it->getType())
+        switch(d.getType())
         {
             case DataStreamType:
-                    LOG_DEBUG_S << "Creating InputDataStream " << it->getName();
+                    LOG_DEBUG_S << "Creating InputDataStream " << d.getName();
                     try
                     {
-                        streams.push_back(new InputDataStream(*it, indexFile->getIndexForStream(*it)));
+                        streams.push_back(new InputDataStream(d, indexFile->getIndexForStream(d)));
                     }
                     catch(...)
                     {
-                        std::cerr << "WARNING, skipping corrupted stream " << it->getName() << " of type " << it->getTypeName();
+                        std::cerr << "WARNING, skipping corrupted stream " << d.getName() << " of type " << d.getTypeName();
                     }
 
                 break;
             default:
-                LOG_INFO_S << "Ignoring stream " << it->getName();
+                LOG_INFO_S << "Ignoring stream " << d.getName();
                 break;
         }
     }
+    return streams;
 }
 
 LogFile::~LogFile()
 {
     for (size_t i = 0; i < streams.size(); i++) {
         delete streams[i];
-        streams[i] = NULL;
     }
     streams.clear();
 
