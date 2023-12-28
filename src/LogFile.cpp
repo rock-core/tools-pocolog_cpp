@@ -14,8 +14,6 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 
     logFile.open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
 
-    readBuffer.resize(8096 * 1024);
-//     logFile.rdbuf()->pubsetbuf(readBuffer.data(), readBuffer.size());
 
     if (!logFile.good()){
         std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
@@ -23,26 +21,13 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
         throw std::runtime_error("Error, empty File");
     }
 
-    // Load the prologue
-    Prologue prologue;
-    logFile.read(reinterpret_cast<char*>(&prologue), sizeof(prologue));
-    if (! logFile.good() || std::string(prologue.magic, 7) != std::string(FORMAT_MAGIC))
-        throw std::runtime_error("Error, Bad Magic Block, not a Pocolog file ?");;
-
-    firstBlockHeaderPos = logFile.tellg();
-    nextBlockHeaderPos = firstBlockHeaderPos;
-    gotBlockHeader = false;
-
-    LOG_DEBUG_S << "Found " << descriptions.size() << " stream in logfile " << getFileName();
-
-    //load Index
+    // Initialize position attributes, read or create the log file
+    rewind();
     IndexFile *indexFile = new IndexFile(*this);
     indexFiles.push_back(indexFile);
 
-    //we need to start from the start, as Stream declarations may be any where
-    //inside the logfile
-    nextBlockHeaderPos = firstBlockHeaderPos;
-    gotBlockHeader = false;
+    // rewind again since IndexFile might have read data to build the index
+    rewind();
 
     descriptions = indexFile->getStreamDescriptions();
 
@@ -81,6 +66,24 @@ LogFile::~LogFile()
         delete indexFiles[i];
     }
     indexFiles.clear();
+}
+
+void LogFile::readPrologue() {
+    // Load the prologue
+    Prologue prologue;
+    logFile.read(reinterpret_cast<char*>(&prologue), sizeof(prologue));
+    if (! logFile.good() || std::string(prologue.magic, 7) != std::string(FORMAT_MAGIC)) {
+        throw std::runtime_error("Error, Bad Magic Block, not a Pocolog file ?");;
+    }
+}
+
+void LogFile::rewind() {
+    logFile.seekg(0);
+    readPrologue();
+    firstBlockHeaderPos = logFile.tellg();
+    nextBlockHeaderPos = firstBlockHeaderPos;
+    gotBlockHeader = false;
+    gotSampleHeader = false;
 }
 
 

@@ -14,7 +14,6 @@ class IndexFile;
 
 class LogFile
 {
-    std::vector<char > readBuffer;
     std::string filename;
     std::streampos firstBlockHeaderPos;
     std::streampos nextBlockHeaderPos;
@@ -26,14 +25,18 @@ class LogFile
     std::vector<Stream *> streams;
     std::vector<StreamDescription> descriptions;
 
-    bool gotBlockHeader;
+    bool gotBlockHeader = false;
     struct BlockHeader curBlockHeader;
-    bool gotSampleHeader;
+    bool gotSampleHeader = false;
     struct SampleHeaderData curSampleHeader;
+    void readPrologue();
 
 public:
     LogFile(const std::string &fileName, bool verbose = true);
     ~LogFile();
+
+    /** Move the read pointer at the beginning of the file, ready to read blocks */
+    void rewind();
 
     std::string getFileName() const;
     std::string getFileBaseName() const;
