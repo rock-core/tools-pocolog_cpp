@@ -1,32 +1,18 @@
-#include <base/Eigen.hpp>
-#include <filesystem>
+#include "Helpers.hpp"
 #include <gmock/gmock.h>
-#include <gtest/gtest.h>
+
+#include <base/Eigen.hpp>
 #include <pocolog_cpp/SequentialReadDispatcher.hpp>
 
 using namespace pocolog_cpp;
 using namespace std;
 using namespace testing;
 
-struct LogFileIndexCleaner {
-    LogFile& logFile;
-    LogFileIndexCleaner(LogFile& logFile)
-        : logFile(logFile)
-    {
-    }
-    ~LogFileIndexCleaner()
-    {
-        logFile.removeAllIndexes();
-    }
-};
-
-struct SequentialReadDispatcherTest : public ::testing::Test {};
+struct SequentialReadDispatcherTest : public helpers::Test {};
 
 TEST_F(SequentialReadDispatcherTest, it_dispatches_samples_to_the_relevant_callbacks)
 {
-    auto fixture = filesystem::path(__FILE__).parent_path() / "fixtures" / "plain.0.log";
-    LogFile logfile(fixture.string());
-    LogFileIndexCleaner delete_index(logfile);
+    auto& logfile = openFixtureLogfile("plain.0.log");
     SequentialReadDispatcher dispatcher(logfile);
 
     dispatcher.importTypesFrom("std");
@@ -37,4 +23,19 @@ TEST_F(SequentialReadDispatcherTest, it_dispatches_samples_to_the_relevant_callb
     dispatcher.run();
 
     EXPECT_THAT(a_values, ElementsAre(10, 20, 30));
+}
+
+TEST_F(SequentialReadDispatcherTest, it_handles_opaques)
+{
+    auto& logfile = openFixtureLogfile("opaques.0.log");
+    SequentialReadDispatcher dispatcher(logfile);
+
+    dispatcher.importTypesFrom("base");
+    std::vector<base::Vector3d> a_values;
+    dispatcher.add<Eigen::Vector3d>("a",
+        [&a_values](auto value) { a_values.push_back(value); });
+    dispatcher.run();
+
+    EXPECT_THAT(a_values,
+        ElementsAre(Eigen::Vector3d(1, 2, 3), Eigen::Vector3d(4, 5, 6)));
 }

@@ -1,28 +1,14 @@
-#include <gtest/gtest.h>
-
-#include <filesystem>
-
+#include "Helpers.hpp"
 #include <pocolog_cpp/LogFile.hpp>
 
 using namespace pocolog_cpp;
 using namespace std;
 
-struct LogFileIndexCleaner {
-    LogFile& logFile;
-    LogFileIndexCleaner(LogFile& logFile)
-        : logFile(logFile) {}
-    ~LogFileIndexCleaner() {
-        logFile.removeAllIndexes();
-    }
-};
-
-struct LogFileTest : public ::testing::Test {
+struct LogFileTest : public helpers::Test {
 };
 
 TEST_F(LogFileTest, it_returns_the_description_of_the_streams) {
-    auto fixture = filesystem::path(__FILE__).parent_path() / "fixtures" / "plain.0.log";
-    LogFile logfile(fixture.string());
-    LogFileIndexCleaner delete_index(logfile);
+    auto& logfile = openFixtureLogfile("plain.0.log");
 
     auto descriptions = logfile.getStreamDescriptions();
     ASSERT_EQ(2, descriptions.size());
@@ -33,9 +19,7 @@ TEST_F(LogFileTest, it_returns_the_description_of_the_streams) {
 }
 
 TEST_F(LogFileTest, it_reads_samples_sequentially) {
-    auto fixture = filesystem::path(__FILE__).parent_path() / "fixtures" / "plain.0.log";
-    LogFile logfile(fixture.string());
-    LogFileIndexCleaner delete_index(logfile);
+    auto& logfile = openFixtureLogfile("plain.0.log");
 
     auto descriptions = logfile.getStreamDescriptions();
 
@@ -80,10 +64,7 @@ TEST_F(LogFileTest, it_reads_samples_sequentially) {
 }
 
 TEST_F(LogFileTest, it_rewinds) {
-    auto fixture = filesystem::path(__FILE__).parent_path() / "fixtures" / "plain.0.log";
-    LogFile logfile(fixture.string());
-    LogFileIndexCleaner delete_index(logfile);
-
+    auto& logfile = openFixtureLogfile("plain.0.log");
     auto descriptions = logfile.getStreamDescriptions();
 
     {
