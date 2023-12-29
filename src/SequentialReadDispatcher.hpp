@@ -79,8 +79,10 @@ public:
     void add(std::string const& streamName,
              Callback<T> callback) {
         auto const& streamInfo = logfile->getStream(streamName);
-        return add<T>(streamName, streamInfo.getTypeName(), callback);
+        return add<T>(streamName, getCXXTypename(streamInfo.getDescription()), callback);
     }
+
+    static std::string getCXXTypename(StreamDescription const& description);
 
     template<typename T>
     void add(std::string const& streamName,

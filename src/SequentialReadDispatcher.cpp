@@ -63,6 +63,16 @@ void SequentialReadDispatcher::importTypesFrom(std::string const& typekitName)
         base + "-transport-typelib-gnulinux.so");
 }
 
+std::string SequentialReadDispatcher::getCXXTypename(StreamDescription const& description) {
+    auto const& map = description.getMetadataMap();
+    auto it = map.find("rock_cxx_type_name");
+    if (it == map.end()) {
+        return description.getTypeName();
+    }
+
+    return it->second;
+}
+
 SequentialReadDispatcher::DispatchBase::DispatchBase(std::string const& streamName,
     std::string const& typeName)
     : streamName(streamName)
