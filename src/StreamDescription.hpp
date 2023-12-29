@@ -27,6 +27,7 @@ class StreamDescription
     mutable std::shared_ptr<Typelib::Registry> m_typelibRegistry;
 
     std::string readString(const std::vector< uint8_t > data, size_t& pos);
+    static std::map<std::string, std::string> parseMetadata(std::string const& s);
 
 public:
     StreamDescription(const std::string& fileName, std::vector<uint8_t> data, size_t stream_idx);

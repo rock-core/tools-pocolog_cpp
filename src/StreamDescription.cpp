@@ -1,12 +1,15 @@
 #include "StreamDescription.hpp"
-#include <base-logging/Logging.hpp>
-#include <fstream>
+
 #include <vector>
-#include <iostream>
 #include <stdexcept>
 #include <sstream>
+
+#include <base-logging/Logging.hpp>
 #include <typelib/pluginmanager.hh>
 #include <typelib/registry.hh>
+#include <yaml-cpp/yaml.h>
+
+using namespace std;
 
 namespace pocolog_cpp
 {
@@ -81,16 +84,25 @@ StreamDescription::StreamDescription(const std::string& fileName, const std::vec
             break;
     };
 
-    std::string key, val;
-    std::istringstream inputData(m_metadata);
-
-    while(std::getline(std::getline(inputData, key, ':') >> std::ws, val))
-        m_metadataMap[key] = val;
+    m_metadataMap = parseMetadata(m_metadata);
 }
 
 StreamDescription::~StreamDescription()
 {
 
+}
+
+map<string, string> StreamDescription::parseMetadata(string const& s) {
+    YAML::Node root = YAML::Load(s);
+    if (!root.IsMap() && !root.IsNull()) {
+        throw invalid_argument("expected the stream metadata to be a YAML sequence");
+    }
+
+    map<string, string> map;
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        map[it->first.as<string>()] = it->second.as<string>();
+    }
+    return map;
 }
 
 Typelib::Type const& StreamDescription::getTypelibType() const {

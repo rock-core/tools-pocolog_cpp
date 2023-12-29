@@ -45,6 +45,7 @@ rock_library(pocolog_cpp
         base-types
         base-logging
         typelib
+        yaml-cpp
         ${OPTIONAL_DEPS_PKGCONFIG}
     DEPS_PLAIN
         Boost_SYSTEM Boost_FILESYSTEM)
