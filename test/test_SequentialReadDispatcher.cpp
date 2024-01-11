@@ -25,6 +25,23 @@ TEST_F(SequentialReadDispatcherTest, it_dispatches_samples_to_the_relevant_callb
     EXPECT_THAT(a_values, ElementsAre(10, 20, 30));
 }
 
+TEST_F(SequentialReadDispatcherTest, it_handles_types_that_require_initialization)
+{
+    auto& logfile = openFixtureLogfile("vector.0.log");
+    SequentialReadDispatcher dispatcher(logfile);
+
+    dispatcher.importTypesFrom("std");
+    std::vector<std::vector<double>> a_values;
+    dispatcher.add<std::vector<double>>("vector",
+        [&a_values](auto value) { a_values.push_back(value); });
+    dispatcher.run();
+
+    EXPECT_THAT(a_values,
+        ElementsAre(std::vector{0.0, 1.0, 2.0, 3.0},
+            std::vector{4.0, 5.0, 6.0, 7.0},
+            std::vector{0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0}));
+}
+
 TEST_F(SequentialReadDispatcherTest, it_handles_opaques)
 {
     auto& logfile = openFixtureLogfile("opaques.0.log");

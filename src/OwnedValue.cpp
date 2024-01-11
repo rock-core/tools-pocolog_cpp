@@ -12,6 +12,7 @@ OwnedValue::OwnedValue(Typelib::Type const& type)
 OwnedValue::OwnedValue(Typelib::Value const& from)
     : buffer(from.getType().getSize())
     , value(buffer.data(), from.getType()) {
+    Typelib::init(value);
     Typelib::copy(value, from);
 }
 
