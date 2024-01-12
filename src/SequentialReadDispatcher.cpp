@@ -6,7 +6,7 @@ using namespace pocolog_cpp;
 using namespace std;
 
 SequentialReadDispatcher::SequentialReadDispatcher(LogFile& logfile)
-    : logfile(&logfile)
+    : logfile(logfile)
 {
 }
 
@@ -19,10 +19,10 @@ SequentialReadDispatcher::~SequentialReadDispatcher()
 
 void SequentialReadDispatcher::run()
 {
-    logfile->rewind();
+    logfile.rewind();
 
     auto per_index_dispatch = buildPerIndexDispatch();
-    while (auto maybe_sample = logfile->readNextSample()) {
+    while (auto maybe_sample = logfile.readNextSample()) {
         if (!maybe_sample.has_value()) {
             return;
         }
@@ -39,7 +39,7 @@ SequentialReadDispatcher::PerIndexDispatch SequentialReadDispatcher::
     buildPerIndexDispatch()
 {
     PerIndexDispatch per_index_dispatch;
-    for (auto const& stream : logfile->getStreamDescriptions()) {
+    for (auto const& stream : logfile.getStreamDescriptions()) {
         size_t index = stream.getIndex();
         if (per_index_dispatch.size() <= index) {
             per_index_dispatch.resize(index + 1);

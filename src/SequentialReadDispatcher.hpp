@@ -58,7 +58,7 @@ class SequentialReadDispatcher {
         }
     };
 
-    LogFile* logfile = nullptr;
+    LogFile& logfile;
     std::vector<DispatchBase*> dispatches;
 
     using PerIndexDispatch = std::vector<std::vector<DispatchBase*>>;
@@ -78,7 +78,7 @@ public:
     template<typename T>
     void add(std::string const& streamName,
              Callback<T> callback) {
-        auto const& streamInfo = logfile->getStream(streamName);
+        auto const& streamInfo = logfile.getStream(streamName);
         return add<T>(streamName, getCXXTypename(streamInfo.getDescription()), callback);
     }
 
