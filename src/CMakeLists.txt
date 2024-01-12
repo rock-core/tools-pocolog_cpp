@@ -1,4 +1,3 @@
-option(HANDLE_OROGEN_OPAQUES "whether orogen-generated opaques should be automatically handled. Adds a dependency on RTT" OFF)
 if (HANDLE_OROGEN_OPAQUES)
     if (NOT OROCOS_TARGET)
         set(OROCOS_TARGET gnulinux)
