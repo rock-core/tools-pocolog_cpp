@@ -15,4 +15,6 @@
   <depend_optional package="rtt_typelib" />
 
   <test_depend package="google-test" />
+  <test_depend package="base/orogen/std" />
+  <test_depend package="base/orogen/types" />
 </package>
