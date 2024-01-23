@@ -2,10 +2,13 @@
 #define STREAMDESCRIPTION_H
 
 #include <string>
-#include "Format.hpp"
-#include "FileStream.hpp"
 #include <vector>
 #include <map>
+#include <memory>
+
+#include "Format.hpp"
+#include "FileStream.hpp"
+#include <typelib/typemodel.hh>
 
 namespace pocolog_cpp
 {
@@ -21,16 +24,19 @@ class StreamDescription
     std::string m_metadata;
     std::map<std::string, std::string> m_metadataMap;
 
-    
+    mutable std::shared_ptr<Typelib::Registry> m_typelibRegistry;
+
     std::string readString(const std::vector< uint8_t > data, size_t& pos);
+    static std::map<std::string, std::string> parseMetadata(std::string const& s);
+
 public:
     StreamDescription(const std::string& fileName, std::vector<uint8_t> data, size_t stream_idx);
     StreamDescription();
     ~StreamDescription();
-    
+
     size_t getIndex() const
-    { 
-        return m_index; 
+    {
+        return m_index;
     }
 
     StreamType getType() const
@@ -57,7 +63,7 @@ public:
     {
         return m_metadata;
     }
-    
+
     const std::string &getFileName() const
     {
         return m_fileName;
@@ -67,8 +73,8 @@ public:
     {
         return m_metadataMap;
     }
-    
-    
+
+    Typelib::Type const& getTypelibType() const;
 };
 }
 #endif // STREAMDESCRIPTION_H

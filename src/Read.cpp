@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2005-2006 LAAS/CNRS <openrobots@laas.fr>
  *	Sylvain Joyeux <sylvain.joyeux@m4x.org>
  *
@@ -55,7 +55,7 @@ namespace
     struct as
     {
         const T* data;
-        
+
         as(const uint8_t* ptr)
             : data(reinterpret_cast<const T*>(ptr)) {}
 
@@ -75,7 +75,7 @@ namespace
 
 namespace pocolog_cpp
 {
-    Input::Input() 
+    Input::Input()
         : m_input(0) {}
 
     Input::~Input()
@@ -125,7 +125,7 @@ namespace pocolog_cpp
             }
             else
                 throw BadBlockType(header.type, pos);
-        }    
+        }
 
         input.clear();
     }
@@ -169,9 +169,9 @@ namespace pocolog_cpp
 
         buffer_reader(vector<uint8_t> const& buffer, size_t pos, size_t size)
             : m_buffer(buffer), m_cursor(0), m_pos(pos), m_size(size) {}
-        
-        void advance(size_t offset) 
-        { 
+
+        void advance(size_t offset)
+        {
             if (m_cursor + offset > m_size)
                 throw BadDataSize(StreamBlockType, m_pos);
             m_cursor += offset;
@@ -184,7 +184,7 @@ namespace pocolog_cpp
 
         template<typename T>
         T read()
-        { 
+        {
             size_t cursor = m_cursor;
             advance(sizeof(T));
             return ::as<T>(&m_buffer[cursor]);
@@ -196,7 +196,7 @@ namespace pocolog_cpp
         buffer_reader reader(buffer, pos_, size_);
         uint8_t stream_type = reader.read<uint8_t>();
 
-        auto_ptr<Stream> new_stream;
+        unique_ptr<Stream> new_stream;
         if (stream_type == ControlStreamType)
         {
             new_stream.reset(new ControlStream(*m_input, stream_idx));
@@ -214,8 +214,8 @@ namespace pocolog_cpp
             uint32_t tlb_length = 0;
             char const* tlb = "";
 
-	    utilmm::config_set empty;
-            auto_ptr<Registry> registry(new Registry);
+            utilmm::config_set empty;
+            unique_ptr<Registry> registry(new Registry);
             if (reader.cursor() < size_)
             {
                 tlb_length = reader.read<uint32_t>();
@@ -227,13 +227,13 @@ namespace pocolog_cpp
 		// Load the data_types registry from pocosim
                 Typelib::PluginManager::load("tlb", stream, empty, *registry);
             }
-            
+
             if (reader.cursor() != size_)
                 throw DataSizeMismatch(StreamBlockType, pos_);
 
             new_stream.reset(
-                    new DataStream(*m_input, stream_idx, 
-                        string(name, name_length), 
+                    new DataStream(*m_input, stream_idx,
+                        string(name, name_length),
                         string(type_name, type_name_length),
                         registry.release()));
         }
@@ -272,16 +272,16 @@ namespace pocolog_cpp
     DataStream::~DataStream() { delete m_registry; }
 
 
-    DataInputIterator DataStream::begin()   
+    DataInputIterator DataStream::begin()
     { return DataInputIterator(getType(), getInputStream(), getIndex(), getBeginPos(), m_firstheader); }
-    DataInputIterator DataStream::end()     
+    DataInputIterator DataStream::end()
     { return DataInputIterator(getType(), getInputStream(), getIndex(), Input::npos, m_firstheader); }
 
     string DataStream::getName() const { return m_name; }
     string DataStream::getTypeName() const { return m_type_name; }
-    Type const*       DataStream::getType() const { 
+    Type const*       DataStream::getType() const {
         if (m_registry)
-            return m_registry->build(m_type_name); 
+            return m_registry->build(m_type_name);
         else
             return 0;
     }
@@ -325,7 +325,7 @@ namespace pocolog_cpp
         : Stream(input, ControlStreamType, stream_index) {}
 
     BlockHeader ControlStream::newDataBlock(BlockHeader header)
-    { 
+    {
         size_t pos = getInputStream().tellg();
         newBlockAt(pos, 0);
         return Input::skip(getInputStream(), header);
@@ -344,7 +344,7 @@ namespace pocolog_cpp
             , size_t first_block, const BlockHeader& first_header)
         : m_sample_type(type), m_input(&input), m_index(stream_idx)
         , m_pos(first_block), m_block_header(first_header)
-    { 
+    {
         if (first_block != Input::npos)
         {
             input.clear();
@@ -355,9 +355,9 @@ namespace pocolog_cpp
     DataInputIterator::~DataInputIterator() {}
 
     bool   DataInputIterator::isValid() const      { return Input::npos != m_pos; }
-    void   DataInputIterator::failed()             
-    { 
-        m_pos = Input::npos; 
+    void   DataInputIterator::failed()
+    {
+        m_pos = Input::npos;
         m_input->clear();
     }
     Time   DataInputIterator::getRealtime() const  { return m_sample_header.realtime; }
@@ -366,8 +366,8 @@ namespace pocolog_cpp
     const uint8_t* DataInputIterator::getData() const  { return as<const uint8_t*>(&m_buffer[SAMPLE_HEADER_SIZE]); }
 
     bool DataInputIterator::operator == (const DataInputIterator& with) const
-    { 
-        return (m_index == with.m_index) && (m_pos == with.m_pos); 
+    {
+        return (m_index == with.m_index) && (m_pos == with.m_pos);
     }
 
     DataInputIterator& DataInputIterator::operator ++()
@@ -412,7 +412,7 @@ namespace pocolog_cpp
             failed();
             return;
         }
-        
+
         m_sample_header = as<SampleHeader>(&m_buffer[0]);
     }
 
