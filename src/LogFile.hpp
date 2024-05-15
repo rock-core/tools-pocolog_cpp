@@ -2,6 +2,7 @@
 #define LOGFILE_H
 #include <string>
 #include <vector>
+#include <optional>
 #include "Stream.hpp"
 #include "Format.hpp"
 #include "FileStream.hpp"
