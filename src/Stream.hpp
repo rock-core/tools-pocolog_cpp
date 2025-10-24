@@ -7,6 +7,8 @@
 #include "Index.hpp"
 #include "FileStream.hpp"
 
+#include <iostream>
+
 namespace pocolog_cpp
 {
 
@@ -17,7 +19,10 @@ protected:
     const StreamDescription &desc;
     Index &index;
 
-    FileStream fileStream;
+    //FileStream fileStream;
+    std::ifstream fileStream;
+    char ReadBuffer[16777216]; //16MB
+
     Stream(const StreamDescription &desc, Index &index);
 
     bool loadSampleHeader(std::streampos pos, pocolog_cpp::SampleHeaderData& header);
@@ -75,7 +80,7 @@ public:
         return index.getNumSamples();
     }
 
-    const FileStream& getFileStream() const
+    const std::ifstream& getFileStream() const
     {
         return fileStream;
     }

@@ -1,10 +1,12 @@
 #include "Stream.hpp"
 #include <base-logging/Logging.hpp>
-#include <iostream>
 #include <stdexcept>
+
+
 
 pocolog_cpp::Stream::Stream(const pocolog_cpp::StreamDescription& desc, pocolog_cpp::Index& index) : desc(desc), index(index)
 {
+    fileStream.rdbuf()->pubsetbuf(ReadBuffer,16777216);
     fileStream.open(desc.getFileName().c_str(), std::ifstream::binary | std::ifstream::in);
     if(!fileStream.good())
         throw std::runtime_error("Error, could not open logfile for stream " + desc.getName());
