@@ -1,10 +1,12 @@
 #include "Stream.hpp"
 #include <base-logging/Logging.hpp>
-#include <iostream>
 #include <stdexcept>
+
+
 
 pocolog_cpp::Stream::Stream(const pocolog_cpp::StreamDescription& desc, pocolog_cpp::Index& index) : desc(desc), index(index)
 {
+    fileStream.rdbuf()->pubsetbuf(0,0);
     fileStream.open(desc.getFileName().c_str(), std::ifstream::binary | std::ifstream::in);
     if(!fileStream.good())
         throw std::runtime_error("Error, could not open logfile for stream " + desc.getName());
@@ -25,6 +27,7 @@ bool pocolog_cpp::Stream::loadSampleHeader(std::streampos pos, SampleHeaderData 
 
 bool pocolog_cpp::Stream::getSampleData(std::vector< uint8_t >& result, size_t sampleNr)
 {
+    printf("%s:%i %li \n", __PRETTY_FUNCTION__, __LINE__, sampleNr);
     std::streampos samplePos = index.getSamplePos(sampleNr);
     std::streampos sampleHeaderPos = samplePos;
     sampleHeaderPos -= sizeof(SampleHeaderData);

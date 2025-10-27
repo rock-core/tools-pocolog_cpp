@@ -13,12 +13,18 @@ namespace pocolog_cpp
 
 LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 {
+    logFile.rdbuf()->pubsetbuf(0,0);
     logFile.open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
+    
     if (!logFile.good()){
         std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
         perror("stat");
         throw std::runtime_error("Error, empty File");
     }
+
+    fileSize = logFile.tellg();
+    logFile.seekg( 0, std::ios::end );
+    fileSize = logFile.tellg() - fileSize;
 
     // Initialize position attributes, read or create the log file
     rewind();
@@ -234,7 +240,7 @@ bool LogFile::readSampleHeader()
 
 bool LogFile::checkSampleComplete()
 {
-    return (logFile.size() >= nextBlockHeaderPos);
+    return (fileSize >= nextBlockHeaderPos);
 }
 
 std::streampos LogFile::getSamplePos() const

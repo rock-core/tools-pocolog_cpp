@@ -7,7 +7,8 @@
 #include <fstream>
 #include <base/Time.hpp>
 #include "StreamDescription.hpp"
-#include "FileStream.hpp"
+// #include "FileStream.hpp"
+#include <iostream>
 
 namespace pocolog_cpp
 {
@@ -87,7 +88,7 @@ private:
     bool firstAdd;
     size_t curSampleNr;
     IndexInfo curIndexInfo;
-    FileStream indexFile;
+    std::ifstream indexFile;
     std::vector<IndexInfo> buildBuffer;
     IndexPrologue prologue;
     base::Time firstSampleTime;

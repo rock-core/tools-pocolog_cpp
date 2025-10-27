@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "Format.hpp"
-#include "FileStream.hpp"
+// #include "FileStream.hpp"
 #include <typelib/typemodel.hh>
 
 namespace pocolog_cpp
