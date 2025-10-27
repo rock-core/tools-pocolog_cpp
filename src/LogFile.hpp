@@ -5,7 +5,8 @@
 #include <optional>
 #include "Stream.hpp"
 #include "Format.hpp"
-#include "FileStream.hpp"
+// #include "FileStream.hpp"
+#include <iostream>
 #include "OwnedValue.hpp"
 
 namespace pocolog_cpp
@@ -20,8 +21,9 @@ class LogFile
     std::streampos nextBlockHeaderPos;
     std::streampos curBlockHeaderPos;
     std::streampos curSampleHeaderPos;
-    FileStream logFile;
+    std::ifstream logFile;
     std::vector<IndexFile *> indexFiles;
+    std::streampos fileSize;
 
     std::vector<Stream *> streams;
     std::vector<StreamDescription> descriptions;

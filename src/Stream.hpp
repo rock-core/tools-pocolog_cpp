@@ -5,7 +5,7 @@
 #include "Format.hpp"
 #include "StreamDescription.hpp"
 #include "Index.hpp"
-#include "FileStream.hpp"
+// #include "FileStream.hpp"
 
 #include <iostream>
 
