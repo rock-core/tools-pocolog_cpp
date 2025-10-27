@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <memory>
 #include "Stream.hpp"
 #include "Format.hpp"
 #include "FileStream.hpp"
@@ -20,7 +21,7 @@ class LogFile
     std::streampos nextBlockHeaderPos;
     std::streampos curBlockHeaderPos;
     std::streampos curSampleHeaderPos;
-    FileStream logFile;
+    std::shared_ptr<FileStream> logFile;
     std::vector<IndexFile *> indexFiles;
 
     std::vector<Stream *> streams;

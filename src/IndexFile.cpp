@@ -155,7 +155,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
                 {
                     throw std::runtime_error("IndexFile: Error building Index, Unexpected stream index");
                 }
-                foundIndices.emplace_back(newStream, descPos);
+                // foundIndices.emplace_back(newStream, descPos); // <- what is this doing, nothing changes after puch_back
                 break;
             }
             case DataBlockType:
@@ -203,7 +203,7 @@ bool IndexFile::createIndexFile(std::string indexFileName, LogFile& logFile)
 
     off_t curProloguePos = sizeof(IndexFileHeader);
     off_t curDataPos = foundIndices.size() * Index::getPrologueSize() + sizeof(IndexFileHeader);
-    for ( auto curIdx : foundIndices )
+    for ( auto& curIdx : foundIndices )
     {
         LOG_INFO_S << "Writing index for stream " << curIdx.getName() << " , num samples " << curIdx.getNumSamples();
 

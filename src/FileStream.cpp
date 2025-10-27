@@ -7,8 +7,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <unistd.h>
+#include <limits>
 
-pocolog_cpp::FileStream::FileStream() : fd(-1), goodFlag(false), fileName("")
+pocolog_cpp::FileStream::FileStream() : fileName("")
 {
 
 }
@@ -23,170 +24,253 @@ pocolog_cpp::FileStream::FileStream(const char* __s, std::ios_base::openmode mod
 
 pocolog_cpp::FileStream::~FileStream()
 {
-    if(fd != -1)
-        close();
+    // if(fd != -1)
+    bufferedFileReader.close();
 }
 
 
 bool pocolog_cpp::FileStream::open(const char* fileName, std::ios_base::openmode mode)
 {
-    fd = ::open(fileName, O_NONBLOCK);
-    if(fd < 0)
+
+    bufferReadPos = 0;
+    bufferStartPos = 0;
+    
+    bufferedFileReader = std::ifstream(fileName, std::ifstream::in | mode);
+
+    //fd = ::open(fileName, O_NONBLOCK);
+    if(!bufferedFileReader.is_open())
     {
-        goodFlag = false;
         return false;
     }
     
-    struct stat stats;
-    int ret = ::fstat(fd, &stats);
-    if(ret < 0)
-    {
-        goodFlag = false;
-        return false;
-    }
+    // struct stat stats;
+    // int ret = ::fstat(fd, &stats);
+    // if(ret < 0)
+    // {
+    //     goodFlag = false;
+    //     return false;
+    // }
     
-    fileSize = stats.st_size;
-    blockSize = stats.st_blksize;
+    // fileSize = stats.st_size;
+    blockSize = 10;
     
-    goodFlag = true;
-    readBufferPosition = -1;
-    readBufferEndPosition = -1;
-    readBuffer.resize(blockSize);
-    readPos = 0;
-    writePos = 0;
+    // goodFlag = true;
+    // readBufferPosition = -1;
+    // readBufferEndPosition = -1;
+    // readBuffer.resize(blockSize);
+    // readPos = 0;
+    // writePos = 0;
     this->fileName = fileName;
+
+    readerThreadRunning = true;
+    fileIsEof = false;
     
-    LOG_DEBUG_S << "File opened " << (fd > 0) << " file size " << fileSize  << " blk size " << blockSize;
+    readThread = std::make_shared<std::thread>([&](){
+        while (readerThreadRunning) {
+            // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__,blockSize.load());
+
+            this->seekMutex.lock();
+            
+
+            this->readBufferMutex.lock();
+            size_t availabeBytes = readBuffer.size() - bufferReadPos;
+            this->readBufferMutex.unlock();
+
+
+            // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__, availabeBytes);
+            
+            if (availabeBytes < blockSize) {                
+                std::vector<char> buf;
+                buf.reserve(blockSize);
+
+                for (int i = 0; i < blockSize;++i) {
+                    char val;
+                    if (!bufferedFileReader.eof()){
+                        bufferedFileReader.get(val);
+                        buf.push_back(val);
+                    }else{
+                        printf("%s:%i EOF\n", __PRETTY_FUNCTION__, __LINE__);
+                        fileIsEof = true;
+                    }
+                }
+
+                this->readBufferMutex.lock();
+                    readBuffer.insert(readBuffer.end(),buf.begin(),buf.end());
+                    printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__, readBuffer.size() - bufferReadPos);
+                this->readBufferMutex.unlock();
+                
+                
+                
+
+                // //int read = bufferedFileReader.readsome(buf.data(), blockSize);
+                // size_t readsize = blockSize;
+                // // if (bufferedFileReader.rdbuf()->in_avail() < blockSize) {
+                // //     readsize = bufferedFileReader.rdbuf()->in_avail();
+                // // }
+
+                // bufferedFileReader.get(buf.data(), readsize);
+                // // int read = ;
+                
+                // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__,readsize);
+                // this->readBufferMutex.lock();
+                // readBuffer.insert(readBuffer.end(),buf.begin(),buf.begin()+readsize);
+                // // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__, readBuffer.size());
+                // this->readBufferMutex.unlock();
+                // return;
+            }else{
+                // this->readBufferMutex.unlock();
+                // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__, availabeBytes);
+                usleep(100);
+            }
+            this->seekMutex.unlock();
+            // printf("%s:%i\n", __PRETTY_FUNCTION__, __LINE__);
+        }
+    });
+    
+    LOG_DEBUG_S << "File opened " << " file size "  << " blk size " << blockSize;
     
     return true;
 }
 
-bool pocolog_cpp::FileStream::reloadBuffer(off_t position)
-{
-    LOG_DEBUG_S << "Loading Buffer " << position;
-    off_t newPos = ::lseek(fd, position, SEEK_SET);
-    if(newPos == -1)
-    {
-        goodFlag = false;
-        LOG_ERROR_S << "Seek Failed";
-        return false;
-    }
-
-    assert(position == newPos);
-    
-    off_t blockNr = position / blockSize;
-    
-    off_t bytesToBlockEnd = (blockNr + 1) * blockSize - position;
-    
-    LOG_DEBUG_S << "Reading " << bytesToBlockEnd << " bytes ";
-    
-    readBufferPosition = position;
-    readBufferEndPosition = position + bytesToBlockEnd;
-    
-    size_t toRead = bytesToBlockEnd;
-    if(readBufferEndPosition > fileSize)
-        toRead = fileSize - readBufferPosition;
-    
-    size_t readSize = 0;
-    while(readSize < toRead)
-    {
-        int ret = ::read(fd, readBuffer.data() + readSize, toRead - readSize);
-        if(ret < 0)
-        {
-            goodFlag = false;
-            LOG_ERROR_S << "Read Error";
-            return false;
-        }
-        if(ret == 0)
-        {
-            //should not happen
-            throw std::runtime_error("Internal error in FileStream, Read returned EOF");
-            //end of file reached
-            break;
-        }
-        readSize += ret;
-    }
-    
-    LOG_DEBUG_S << "Buffer Loaded " << readBufferPosition << " end " << readBufferEndPosition;
-    
-    return true;
-}
 
 void pocolog_cpp::FileStream::read(char* buffer, size_t size)
 {
-    LOG_DEBUG_S << "Reading Bytes from pos " << readPos;
+    LOG_DEBUG_S << "Reading Bytes " << size;
 
-    size_t posInBuf = readPos - readBufferPosition;
     
-    for(size_t i = 0; i < size; i++)
-    {
-        if(eof())
-        {
-            goodFlag = false;
+
+    // printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__, size);
+    
+    // readBufferMutex.lock();
+
+    if (blockSize < size) {
+        // increase read size, to fill the readbuffer to an appropirate level
+        blockSize = size;
+    }
+
+    readBufferMutex.lock();
+    size_t availabeBytes = readBuffer.size() - bufferReadPos;
+
+    printf("%s:%i %li of %li\n", __PRETTY_FUNCTION__, __LINE__, availabeBytes, size);
+
+    // need to free lock to allow reader thread to add contents
+    // readBufferMutex.unlock();
+    // while(availabeBytes < size) {
+    //     usleep(100);
+    //     //keep buffer unlocked while waiting for data
+    //     readBufferMutex.lock();
+    //     availabeBytes = readBuffer.size() - bufferReadPos;
+    //     readBufferMutex.unlock();
+
+    //     if (fileeof) {
+    //         seekMutex.unlock();
+    //         return;
+    //     }
+    //     printf("%s:%i %li of %li\n", __PRETTY_FUNCTION__, __LINE__, availabeBytes, size);
+    // }
+
+
+    while (readBuffer.size() < size) {
+        readBufferMutex.unlock();
+        usleep(1000);
+
+        readBufferMutex.lock();
+
+        if (bufferedFileReader.eof()){
+            // not more to ecpect
             return;
         }
-        
-        if(!posInBuffer(readPos))
-        {
-            //load new buffer
-            if(!reloadBuffer(readPos))
-                return;
-            
-            posInBuf = readPos - readBufferPosition;
-            assert(posInBuf == 0);
-        }
-        
-        buffer[i] = readBuffer[posInBuf];
-        posInBuf++;
-        readPos++;
+
+        //printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__,readBuffer.size());
     }
+
+    printf("%s:%i %li\n", __PRETTY_FUNCTION__, __LINE__,readBuffer.size());
+    readBufferMutex.unlock();
+
+
+    readBufferMutex.lock();
+    for(size_t i = 0; i < size; i++)
+    {
+            // buffer[i] = readBuffer[bufferReadPos++];
+            buffer[i] = readBuffer.front();
+            readBuffer.pop_front();
+        
+    }
+    readBufferMutex.unlock();
+    
+    printf("%s:%i\n", __PRETTY_FUNCTION__, __LINE__);
     
 }
 
 bool pocolog_cpp::FileStream::good() const
 {
-    return goodFlag;
+    return bufferedFileReader.good();
 }
 
 bool pocolog_cpp::FileStream::fail() const
 {
-    return !goodFlag;
+    return bufferedFileReader.fail();
 }
 
 std::streampos pocolog_cpp::FileStream::seekg(std::streampos pos)
 {
-    readPos = pos;
-    goodFlag = true;
-    return readPos;
+    seekMutex.lock();
+        bufferedFileReader.seekg(pos);
+        readBufferMutex.lock();
+            std::streampos bufferEnd = bufferStartPos + readBuffer.size();
+            // if (pos < bufferStartPos || pos > bufferEnd) {
+                // relocate read
+                bufferReadPos = 0;
+                bufferStartPos = pos;
+                fileIsEof=false;
+                readBuffer.clear(); // reload data in othe rthread
+                printf("%s:%i\n", __PRETTY_FUNCTION__, __LINE__);
+            // } else {
+            //     // pos is already in buffer
+            //     // relocate reead index
+            //     bufferReadPos = pos - bufferStartPos;
+            //     // size_t todelete = pos - bufferpos;
+            //     // readBuffer.erase(readBuffer.begin(), readBuffer.begin()+todelete);
+            //     printf("%s:%i\n", __PRETTY_FUNCTION__, __LINE__);
+            // }
+        readBufferMutex.unlock();
+    seekMutex.unlock();
+
+    //todo: error handling
+    return pos;
 }
 
-std::streampos pocolog_cpp::FileStream::seekp(std::streampos pos)
-{
-    writePos = pos;
-    goodFlag = true;
-    return writePos;
-}
+// std::streampos pocolog_cpp::FileStream::seekp(std::streampos pos)
+// {
+//     return bufferedFileReader.seekp(pos);
+// }
 
-std::streampos pocolog_cpp::FileStream::tellg()
-{
-    return readPos;
-}
+// std::streampos pocolog_cpp::FileStream::tellg()
+// {
+//     printf("%s:%i\n", __PRETTY_FUNCTION__, __LINE__);
+//     readBufferMutex.lock();
+//     // std::streampos pos = bufferedFileReader.tellg() - readBuffer.size();
+//     std::streampos pos = bufferStartPos + bufferReadPos;
+//     readBufferMutex.unlock();
+//     return pos;
+// }
 
-std::streampos pocolog_cpp::FileStream::tellp()
-{
-    return writePos;
-}
+// std::streampos pocolog_cpp::FileStream::tellp()
+// {
+//     return bufferedFileReader.tellp();
+// }
 
-off_t pocolog_cpp::FileStream::size() const
-{
-    return fileSize;
-}
+// off_t pocolog_cpp::FileStream::size() const
+// {
+//     return 0;
+// }
 
 void pocolog_cpp::FileStream::close()
 {
-    goodFlag = false;
-    if(fd > 0)
-        ::close(fd);
-    fd = -1;
+    readBufferMutex.lock();
+    readerThreadRunning = false;
+    readThread->join();
+    readBufferMutex.unlock();
+    bufferedFileReader.close();
 }
 

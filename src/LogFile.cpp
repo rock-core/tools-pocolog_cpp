@@ -13,8 +13,10 @@ namespace pocolog_cpp
 
 LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
 {
-    logFile.open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
-    if (!logFile.good()){
+    logFile = std::make_shared<FileStream>();
+    // logFile->setBlocksize(1024);
+    logFile->open(fileName.c_str(), std::ifstream::binary | std::ifstream::in);
+    if (!logFile->good()){
         std::cerr << "\ncould not load " << fileName.c_str() << std::endl;
         perror("stat");
         throw std::runtime_error("Error, empty File");
@@ -83,16 +85,16 @@ LogFile::~LogFile()
 void LogFile::readPrologue() {
     // Load the prologue
     Prologue prologue;
-    logFile.read(reinterpret_cast<char*>(&prologue), sizeof(prologue));
-    if (! logFile.good() || std::string(prologue.magic, 7) != std::string(FORMAT_MAGIC)) {
+    logFile->read(reinterpret_cast<char*>(&prologue), sizeof(prologue));
+    if (! logFile->good() || std::string(prologue.magic, 7) != std::string(FORMAT_MAGIC)) {
         throw std::runtime_error("Error, Bad Magic Block, not a Pocolog file ?");;
     }
 }
 
 void LogFile::rewind() {
-    logFile.seekg(0);
+    logFile->seekg(0);
     readPrologue();
-    firstBlockHeaderPos = logFile.tellg();
+    firstBlockHeaderPos = 0;
     nextBlockHeaderPos = firstBlockHeaderPos;
     gotBlockHeader = false;
     gotSampleHeader = false;
@@ -168,16 +170,16 @@ bool LogFile::readNextBlockHeader(BlockHeader& curBlockHeade)
 
 bool LogFile::readNextBlockHeader()
 {
-    logFile.seekg(nextBlockHeaderPos);
-    if(logFile.eof())
+    logFile->seekg(nextBlockHeaderPos);
+    if(logFile->eof())
     {
         return false;
     }
 
     curBlockHeaderPos = nextBlockHeaderPos;
 
-    logFile.read((char *) &curBlockHeader, sizeof(BlockHeader));
-    if(!logFile.good())
+    logFile->read((char *) &curBlockHeader, sizeof(BlockHeader));
+    if(!logFile->good())
     {
         LOG_ERROR_S << "Reading Block Header failedSample Pos is " << curBlockHeaderPos;
 //
@@ -202,9 +204,9 @@ const BlockHeader& LogFile::getCurBlockHeader() const
 bool LogFile::readCurBlock(std::vector< uint8_t >& blockData)
 {
     blockData.resize(curBlockHeader.data_size);
-    logFile.seekg(curSampleHeaderPos);
-    logFile.read(reinterpret_cast<char *>(blockData.data()), curBlockHeader.data_size);
-    return logFile.good();
+    logFile->seekg(curSampleHeaderPos);
+    logFile->read(reinterpret_cast<char *>(blockData.data()), curBlockHeader.data_size);
+    return logFile->good();
 }
 
 bool LogFile::readSampleHeader()
@@ -214,15 +216,15 @@ bool LogFile::readSampleHeader()
         throw std::runtime_error("Internal Error: Called readSampleHeader without reading Block header first");
     }
 
-    logFile.seekg(curSampleHeaderPos);
+    logFile->seekg(curSampleHeaderPos);
 
-    if(logFile.eof() || logFile.fail())
+    if(logFile->eof() || logFile->fail())
     {
         return false;
     }
 
-    logFile.read((char *) &curSampleHeader, sizeof(SampleHeaderData));
-    if(!logFile.good())
+    logFile->read((char *) &curSampleHeader, sizeof(SampleHeaderData));
+    if(!logFile->good())
     {
         return false;
     }
@@ -234,7 +236,7 @@ bool LogFile::readSampleHeader()
 
 bool LogFile::checkSampleComplete()
 {
-    return (logFile.size() >= nextBlockHeaderPos);
+    return (logFile->eof());
 }
 
 std::streampos LogFile::getSamplePos() const
@@ -294,8 +296,8 @@ bool LogFile::getSampleData(std::vector<uint8_t>& buffer)
     if (buffer.size() < curSampleHeader.data_size) {
         buffer.resize(curSampleHeader.data_size);
     }
-    logFile.read(reinterpret_cast<char*>(buffer.data()), curSampleHeader.data_size);
-    return logFile.good();
+    logFile->read(reinterpret_cast<char*>(buffer.data()), curSampleHeader.data_size);
+    return logFile->good();
 }
 
 OwnedValue LogFile::getSample() {
@@ -329,7 +331,7 @@ optional<LogFile::Sample> LogFile::readNextSample() {
 
 bool LogFile::eof() const
 {
-    return logFile.eof();
+    return logFile->eof();
 }
 
 
