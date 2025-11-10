@@ -5,7 +5,7 @@
 #include "Format.hpp"
 #include "StreamDescription.hpp"
 #include "Index.hpp"
-#include "FileStream.hpp"
+#include "MappedStream.hpp"
 
 namespace pocolog_cpp
 {
@@ -17,7 +17,7 @@ protected:
     const StreamDescription &desc;
     Index &index;
 
-    FileStream fileStream;
+    MappedStream fileStream;
     Stream(const StreamDescription &desc, Index &index);
 
     bool loadSampleHeader(std::streampos pos, pocolog_cpp::SampleHeaderData& header);
@@ -75,10 +75,10 @@ public:
         return index.getNumSamples();
     }
 
-    const FileStream& getFileStream() const
-    {
-        return fileStream;
-    }
+//    const FileStream& getFileStream() const
+//    {
+//        return fileStream;
+//    }
 
     bool getSampleData(std::vector<uint8_t> &result, size_t sampleNr);
 

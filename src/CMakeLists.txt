@@ -22,12 +22,14 @@ rock_library(pocolog_cpp
         LogFile.cpp
         IndexFile.cpp
         FileStream.cpp
+        MappedStream.cpp
         MultiFileIndex.cpp
         named_vector_helpers.cpp
         OwnedValue.cpp
         ${OPTIONAL_SOURCES}
     HEADERS
         FileStream.hpp
+        MappedStream.hpp
         Format.hpp
         Index.hpp
         InputDataStream.hpp
