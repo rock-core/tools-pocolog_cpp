@@ -31,6 +31,8 @@ LogFile::LogFile(const std::string& fileName, bool verbose) : filename(fileName)
     descriptions = indexFile->getStreamDescriptions();
     LOG_DEBUG_S << "Found " << descriptions.size() << " stream in logfile " << getFileName();
     streams = createStreamsFromDescriptions(descriptions, indexFile);
+
+    runSampleThread();
 }
 
 void LogFile::removeAllIndexes() {
@@ -69,6 +71,10 @@ std::vector<Stream*> LogFile::createStreamsFromDescriptions(
 
 LogFile::~LogFile()
 {
+
+    runThread = false;
+    readThread.join();
+
     for (size_t i = 0; i < streams.size(); i++) {
         delete streams[i];
     }
@@ -315,16 +321,49 @@ OwnedValue LogFile::getSample(std::vector<uint8_t>& buffer) {
 }
 
 optional<LogFile::Sample> LogFile::readNextSample() {
-    while (readNextBlockHeader()) {
-        if (curBlockHeader.type == DataBlockType) {
-            uint16_t stream_idx = curBlockHeader.stream_idx;
-            readSampleHeader();
-            return optional<Sample>(
-                make_tuple(stream_idx, getSampleTime(), getSample())
-            );
-        }
+    queueMutex.lock();
+    if (sampleQueue.size()) {
+        Sample returnSample = sampleQueue.front();
+        sampleQueue.pop_front();
+        queueMutex.unlock();
+        return optional<Sample>(returnSample);
     }
+    queueMutex.unlock();
+    usleep(100000);
     return optional<Sample>();
+}
+
+bool LogFile::runSampleThread() {
+    readThread = std::thread([&](){
+        runThread = true;
+        while (runThread){
+
+            queueMutex.lock();
+            size_t qsize = sampleQueue.size();
+            queueMutex.unlock();
+
+            if (qsize < 25) {
+                while (readNextBlockHeader()) {
+                    if (curBlockHeader.type == DataBlockType) {
+                        uint16_t stream_idx = curBlockHeader.stream_idx;
+                        readSampleHeader();
+
+                        queueMutex.lock();
+                        sampleQueue.push_back(make_tuple(stream_idx, getSampleTime(), getSample()));
+                        queueMutex.unlock();
+
+                    } else {
+                        //runThread = false;
+                        usleep(100000);
+                    }
+                }
+            } else {
+                usleep(100000);
+            }
+            
+        }
+    });
+    return true;
 }
 
 bool LogFile::eof() const

@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <thread>
+#include <memory>
+#include <mutex>
+#include <deque>
 #include "Stream.hpp"
 #include "Format.hpp"
 #include "FileStream.hpp"
@@ -75,6 +79,14 @@ public:
 
     using Sample = std::tuple<uint16_t, base::Time, OwnedValue>;
     std::optional<Sample> readNextSample();
+    bool runSampleThread();
+    std::atomic<bool> runThread;
+    
+    std::deque<Sample> sampleQueue;
+    std::mutex queueMutex;
+    
+    
+    std::thread readThread;
 
     bool eof() const;
 
